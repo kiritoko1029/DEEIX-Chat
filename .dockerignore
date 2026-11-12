@@ -28,6 +28,7 @@ apps/desktop
 .ruff_cache
 .codex
 .dsh
+.pnpm-store
 .env
 .env.*
 **/*.db
