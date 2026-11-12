@@ -24,9 +24,22 @@ jobs:
     if: github.event.release.tag_name != 'desktop-beta'
     runs-on: ubuntu-24.04
     steps:
+      - name: Skip Web/Docker date releases
+        id: channel
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ "$RELEASE_TAG" =~ ^v[12][0-9]{3}\. ]]; then
+            echo "Web/Docker CalVer release: desktop updater is unchanged." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "desktop=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v5
+        if: steps.channel.outputs.desktop == 'true'
       - name: Refresh
+        if: steps.channel.outputs.desktop == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: bash apps/desktop/scripts/refresh-beta-manifest.sh "${{ github.event.release.tag_name }}"
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: bash apps/desktop/scripts/refresh-beta-manifest.sh "$RELEASE_TAG"

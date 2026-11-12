@@ -23,6 +23,8 @@ permissions:
 jobs:
   tag:
     name: Tag and dispatch
+    # Manual runs must not create release tags from arbitrary integration refs.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -36,6 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid VERSION" >&2
+            exit 1
+          fi
           tag="v${version}"
           if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
             echo "${tag} already exists; nothing to do"
@@ -56,5 +62,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh workflow run desktop-release.yml --ref "refs/tags/$RELEASE_TAG"
+          # CalVer tags only publish Web/Docker; retain SemVer desktop releases.
+          if [[ ! "$RELEASE_TAG" =~ ^v[12][0-9]{3}\. ]]; then
+            gh workflow run desktop-release.yml --ref "refs/tags/$RELEASE_TAG"
+          fi
+          # Manual image dispatch deliberately does not promote latest.
+          # Stable latest promotion requires a normal tag push (or rerun of that push).
           gh workflow run image.yml --ref "$RELEASE_TAG"

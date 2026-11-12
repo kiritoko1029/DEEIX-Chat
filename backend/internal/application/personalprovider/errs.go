@@ -4,6 +4,8 @@ import "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/apperr"
 
 // 错误码与文案是前端依赖的 API 契约，改动需同步 apps/web/i18n/messages/*/errors.json。
 var (
+	ErrImportedCredentialChanged = apperr.New("personal_provider.imported_credential_changed", "imported provider credentials changed; update through authenticated settings")
+	ErrImportedProviderDisabled  = apperr.New("personal_provider.imported_provider_disabled", "imported model provider is disabled")
 	// ErrFeatureDisabled 表示管理员未开启自带 Key，或当前用户不在允许的权限组内。
 	ErrFeatureDisabled = apperr.New("personal_provider.disabled", "personal model providers are not enabled for this account")
 	// ErrNotFound 表示服务不存在或不属于当前用户。

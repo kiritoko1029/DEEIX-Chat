@@ -41,6 +41,29 @@ func TestVersionEndpointIsPublicAndUncached(t *testing.T) {
 	}
 }
 
+func TestSub2APIRootEntryStaticResponseIsNeverCached(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte(strings.Repeat("entry", 400)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := NewEngine(config.NewRuntime(config.Config{AppName: "test", FrontendDistDir: root}), nil, Modules{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{"/?user_id=1&token=synthetic", "/?token=%ZZ", "/?user_id=1"} {
+		for _, method := range []string{http.MethodGet, http.MethodHead} {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(method, target, nil)
+			r.Header.Set("Accept-Encoding", "gzip")
+			engine.ServeHTTP(w, r)
+			h := w.Result().Header
+			if w.Code != 200 || h.Get("Cache-Control") != "no-store" || h.Get("Referrer-Policy") != "no-referrer" || h.Get("X-Frame-Options") != "DENY" {
+				t.Fatalf("%s %s: %d %v", method, target, w.Code, h)
+			}
+		}
+	}
+}
+
 func TestFrontendStaticFallbackServesExportedPage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	root := t.TempDir()

@@ -7,6 +7,9 @@ on:
     tags:
       - "v*.*.*"
       - "v*.*.*-*"
+      # Four-digit CalVer years are Web/Docker releases. MSI major versions cannot
+      # represent these years, and these tags must not start signed desktop builds.
+      - "!v[12][0-9][0-9][0-9].*"
   workflow_dispatch:
     inputs:
       release_tag:

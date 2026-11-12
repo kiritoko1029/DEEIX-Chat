@@ -23,6 +23,7 @@ import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { SlideSwitch } from "@/shared/components/slide-switch";
 import {
   ModelIcon,
+  parsePersonalModelRef,
   resolveModelIconURL,
   resolveModelOptionIconUrl,
   resolveModelOptionLabel,
@@ -74,7 +75,8 @@ const DESKTOP_SUBMENU_VERTICAL_CHROME = 12;
 /** Models on the user's own key are grouped by provider, after the platform groups. */
 function resolveModelGroupPresentation(item: ChatModelOption) {
   if (item.personalProviderName !== null) {
-    return { key: `personal:${item.personalProviderName}`, label: item.personalProviderName, icon: item.personalProviderIcon };
+    const providerID = parsePersonalModelRef(item.platformModelName)?.providerID ?? item.platformModelName;
+    return { key: `personal:${providerID}`, label: item.personalProviderName, icon: item.personalProviderIcon };
   }
   return resolveModelPresentationGroup(item);
 }
@@ -1410,7 +1412,7 @@ export function ChatModelPicker({
                               }}
                             >
                               {group.personal && !group.icon ? <PersonalGroupIcon /> : <ModelIcon iconUrl={groupIconURL} label={group.label} />}
-                              <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                              <span className="min-w-0 flex-1 truncate font-medium" title={group.label}>{group.label}</span>
                               {group.personal ? <PersonalGroupBadge label={t("personalBadge")} /> : null}
                               <span className="shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/80" style={groupCountStyle}>
                                 {group.items.length}
@@ -1576,7 +1578,7 @@ export function ChatModelPicker({
                                 onClick={() => selectDesktopGroup(group.key)}
                               >
                                 {group.personal && !group.icon ? <PersonalGroupIcon /> : <ModelIcon iconUrl={groupIconURL} label={group.label} />}
-                                <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                                <span className="min-w-0 flex-1 truncate font-medium" title={group.label}>{group.label}</span>
                                 {group.personal ? <PersonalGroupBadge label={t("personalBadge")} /> : null}
                                 <span className="shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/80" style={groupCountStyle}>
                                   {group.items.length}

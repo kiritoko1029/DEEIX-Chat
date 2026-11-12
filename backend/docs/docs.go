@@ -10403,6 +10403,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/sub2api/exchange": {
+            "post": {
+                "description": "仅部署方开启时可用；校验远端身份并逐项复用或导入全部兼容 Key，保留本地 2FA",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "使用可信 sub2api 登录凭证换取 DEEIX Chat 会话",
+                "parameters": [
+                    {
+                        "description": "sub2api 交换请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Sub2APIExchangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/LoginResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "423": {
+                        "description": "Locked",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/billing/account": {
             "get": {
                 "security": [
@@ -19386,6 +19480,9 @@ const docTemplate = `{
                     "x-nullable": true,
                     "x-omitempty": false
                 },
+                "externalProfile": {
+                    "$ref": "#/definitions/ExternalProfileResponse"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -23687,6 +23784,32 @@ const docTemplate = `{
                 }
             }
         },
+        "ExternalProfileResponse": {
+            "type": "object",
+            "required": [
+                "displayName",
+                "email",
+                "provider",
+                "username"
+            ],
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": [
+                        "sub2api"
+                    ]
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "FeaturePolicyResponse": {
             "type": "object",
             "required": [
@@ -25253,6 +25376,9 @@ const docTemplate = `{
                 },
                 "sessionID": {
                     "type": "string"
+                },
+                "sub2apiImport": {
+                    "$ref": "#/definitions/Sub2APIImportResponse"
                 },
                 "twoFactorChallengeToken": {
                     "type": "string"
@@ -31587,6 +31713,98 @@ const docTemplate = `{
                 }
             }
         },
+        "Sub2APIExchangeRequest": {
+            "type": "object",
+            "required": [
+                "token",
+                "userID"
+            ],
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "maxLength": 16384,
+                    "minLength": 1
+                },
+                "userID": {
+                    "type": "integer",
+                    "maximum": 9007199254740991,
+                    "minimum": 1
+                }
+            }
+        },
+        "Sub2APIImportItemResponse": {
+            "type": "object",
+            "required": [
+                "groupName",
+                "keyID",
+                "name",
+                "status"
+            ],
+            "properties": {
+                "groupName": {
+                    "type": "string"
+                },
+                "keyID": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "providerID": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "imported",
+                        "reused",
+                        "skipped",
+                        "failed"
+                    ]
+                }
+            }
+        },
+        "Sub2APIImportResponse": {
+            "type": "object",
+            "required": [
+                "eligible",
+                "failed",
+                "imported",
+                "items",
+                "reused",
+                "skipped",
+                "total"
+            ],
+            "properties": {
+                "eligible": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "imported": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Sub2APIImportItemResponse"
+                    }
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "SubmitFileEmbeddingsRequest": {
             "type": "object",
             "required": [
@@ -35322,7 +35540,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.4.6",
+	Version:          "2026.11.12",
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

@@ -14,6 +14,7 @@ var (
 	errSessionInvalid              = apperr.New("auth.session_invalid", "session invalid")
 
 	errRateLimitExceeded        = apperr.New("rate_limit.exceeded", "rate limit exceeded")
+	errRateLimitUnavailable     = apperr.New("rate_limit.unavailable", "authentication rate limiter is temporarily unavailable")
 	errRefreshRateLimitExceeded = apperr.New("rate_limit.refresh_exceeded", "too many refresh attempts")
 	errAuthRateLimitExceeded    = apperr.New("rate_limit.authentication_exceeded", "too many authentication attempts")
 )

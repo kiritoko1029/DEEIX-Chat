@@ -158,7 +158,7 @@ func NewEngine(cfg *config.Runtime, log *zap.Logger, modules Modules, hc HealthC
 	engine.Use(trustedProxyHeaders)
 	engine.Use(middleware.RequestID())
 	engine.Use(middleware.AccessLog(log, modules.ErrorRecorder))
-	engine.Use(middleware.SecurityHeaders())
+	engine.Use(middleware.SecurityHeaders(snapshot.Sub2APIFrameOrigin()))
 	engine.Use(middleware.CORS(snapshot.CORSAllowOrigin))
 	engine.Use(middleware.Compress())
 
@@ -174,6 +174,9 @@ func NewEngine(cfg *config.Runtime, log *zap.Logger, modules Modules, hc HealthC
 	api := engine.Group("/api/v1")
 	// 能力位关闭的功能整组返回 404 feature.disabled；见 docs/ARCHITECTURE.md §4。
 	gate := middleware.NewFeatureGate(cfg)
+	if modules.Auth != nil {
+		modules.Auth.RegisterSub2APIRoutes(api, limiter, cfg)
+	}
 	api.GET("/version", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
 		c.Header("Pragma", "no-cache")

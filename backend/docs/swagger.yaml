@@ -772,6 +772,8 @@ definitions:
         type: string
         x-nullable: true
         x-omitempty: false
+      externalProfile:
+        $ref: '#/definitions/ExternalProfileResponse'
       id:
         type: integer
       identityProviders:
@@ -3837,6 +3839,24 @@ definitions:
     - userLabel
     - userUsername
     type: object
+  ExternalProfileResponse:
+    properties:
+      displayName:
+        type: string
+      email:
+        type: string
+      provider:
+        enum:
+        - sub2api
+        type: string
+      username:
+        type: string
+    required:
+    - displayName
+    - email
+    - provider
+    - username
+    type: object
   FeaturePolicyResponse:
     properties:
       desktopDownloadEnabled:
@@ -4928,6 +4948,8 @@ definitions:
         type: string
       sessionID:
         type: string
+      sub2apiImport:
+        $ref: '#/definitions/Sub2APIImportResponse'
       twoFactorChallengeToken:
         type: string
       twoFactorRequired:
@@ -9438,6 +9460,72 @@ definitions:
     - usedBytes
     - userID
     type: object
+  Sub2APIExchangeRequest:
+    properties:
+      token:
+        maxLength: 16384
+        minLength: 1
+        type: string
+      userID:
+        maximum: 9007199254740991
+        minimum: 1
+        type: integer
+    required:
+    - token
+    - userID
+    type: object
+  Sub2APIImportItemResponse:
+    properties:
+      groupName:
+        type: string
+      keyID:
+        type: integer
+      name:
+        type: string
+      providerID:
+        type: string
+      reason:
+        type: string
+      status:
+        enum:
+        - imported
+        - reused
+        - skipped
+        - failed
+        type: string
+    required:
+    - groupName
+    - keyID
+    - name
+    - status
+    type: object
+  Sub2APIImportResponse:
+    properties:
+      eligible:
+        type: integer
+      failed:
+        type: integer
+      imported:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/Sub2APIImportItemResponse'
+        type: array
+      reused:
+        type: integer
+      skipped:
+        type: integer
+      total:
+        type: integer
+    required:
+    - eligible
+    - failed
+    - imported
+    - items
+    - reused
+    - skipped
+    - total
+    type: object
   SubmitFileEmbeddingsRequest:
     properties:
       fileIDs:
@@ -12091,7 +12179,7 @@ info:
   contact: {}
   description: DEEIX Chat 后端 API 文档
   title: DEEIX Chat API
-  version: "0.4.6"
+  version: "2026.11.12"
 paths:
   /admin/announcements:
     get:
@@ -18702,6 +18790,68 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新当前会话精确位置
+      tags:
+      - auth
+  /auth/sub2api/exchange:
+    post:
+      consumes:
+      - application/json
+      description: 仅部署方开启时可用；校验远端身份并逐项复用或导入全部兼容 Key，保留本地 2FA
+      parameters:
+      - description: sub2api 交换请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/Sub2APIExchangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/LoginResponseDoc'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "423":
+          description: Locked
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+      summary: 使用可信 sub2api 登录凭证换取 DEEIX Chat 会话
       tags:
       - auth
   /billing/account:

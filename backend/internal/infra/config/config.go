@@ -296,6 +296,12 @@ type yamlConfig struct {
 		SSRFAllowedCIDRs           string   `yaml:"ssrf_allowed_cidrs"`
 		TurnstileSiteverifyURL     string   `yaml:"turnstile_siteverify_url"`
 	} `yaml:"security"`
+	Sub2API struct {
+		Enabled        *bool  `yaml:"enabled"`
+		BaseURL        string `yaml:"base_url"`
+		APIBaseURL     string `yaml:"api_base_url"`
+		AllowEmbedding *bool  `yaml:"allow_embedding"`
+	} `yaml:"sub2api"`
 	Database struct {
 		Driver   string `yaml:"driver"`
 		Postgres struct {
@@ -454,6 +460,12 @@ type Config struct {
 	OTelExporterOTLPInsecure     bool
 	OTelExporterOTLPProtocol     string
 	OTelSamplingRate             float64
+
+	// Sub2API is an explicit deployment-level trust relationship, disabled by default.
+	Sub2APIEnabled        bool
+	Sub2APIBaseURL        string
+	Sub2APIAPIBaseURL     string
+	Sub2APIAllowEmbedding bool
 
 	// ── 动态配置（由 DB 种子初始化默认值，settings.RuntimeSettings.ApplyTo 覆盖） ──
 	// 认证配置
@@ -654,6 +666,10 @@ func Load() Config {
 		SSRFProtectionEnabled:        envOrBoolPtr("SSRF_PROTECTION_ENABLED", yc.Security.SSRFProtectionEnabled, false),
 		SSRFAllowedHosts:             envOr("SSRF_ALLOWED_HOSTS", yc.Security.SSRFAllowedHosts, ""),
 		SSRFAllowedCIDRs:             envOr("SSRF_ALLOWED_CIDRS", yc.Security.SSRFAllowedCIDRs, ""),
+		Sub2APIEnabled:               envOrBoolPtr("SUB2API_ENABLED", yc.Sub2API.Enabled, false),
+		Sub2APIAllowEmbedding:        envOrBoolPtr("SUB2API_ALLOW_EMBEDDING", yc.Sub2API.AllowEmbedding, false),
+		Sub2APIBaseURL:               strings.TrimRight(strings.TrimSpace(envOr("SUB2API_BASE_URL", yc.Sub2API.BaseURL, "")), "/"),
+		Sub2APIAPIBaseURL:            strings.TrimRight(strings.TrimSpace(envOr("SUB2API_API_BASE_URL", yc.Sub2API.APIBaseURL, "")), "/"),
 		DatabaseDriver:               normalizeDatabaseDriver(envOr("DATABASE_DRIVER", yc.Database.Driver, "postgres")),
 		PostgresDSN:                  normalizePostgresDSN(envOr("POSTGRES_DSN", yc.Database.Postgres.DSN, "host=127.0.0.1 user=deeix_chat password=deeix_chat_dev_2026 dbname=deeix_chat port=5432 sslmode=disable TimeZone=Asia/Shanghai")),
 		PostgresMaxOpenConns:         envOrInt("POSTGRES_MAX_OPEN_CONNS", yc.Database.Postgres.MaxOpenConns, 30),
@@ -869,6 +885,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("invalid config: SSRF allowlist: %w", err)
 	}
 	if err := validateHTTPIntegrationURL(c.TurnstileSiteverifyURL, "TURNSTILE_SITEVERIFY_URL"); err != nil {
+		return err
+	}
+	if err := c.validateSub2API(); err != nil {
 		return err
 	}
 	if _, err := c.Keyring(); err != nil {

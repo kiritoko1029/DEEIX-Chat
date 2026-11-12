@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 
+import { Sub2ApiBootstrapGate } from "@/features/auth";
 import { DesktopBootstrap, DesktopDownloadNotifier, DesktopUpdateNotifier } from "@/features/desktop";
 import { AppVersionGuard } from "@/features/shell";
 import { AppearancePreferencesProvider } from "@/features/settings";
@@ -41,6 +42,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  referrer: "no-referrer",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -81,17 +83,19 @@ export default function RootLayout({
             <ThemeProvider>
               <AppearancePreferencesProvider>
                 <DesktopBootstrap>
-                  <CapabilitiesProvider>
-                    {children}
-                    <AppVersionGuard />
-                    <DesktopUpdateNotifier />
-                    <DesktopDownloadNotifier />
-                    <LegacyPWAServiceWorkerMigration />
-                    <DevtoolsBrandBanner />
-                  </CapabilitiesProvider>
+                  <Sub2ApiBootstrapGate>
+                    <CapabilitiesProvider>
+                      {children}
+                      <AppVersionGuard />
+                      <DesktopUpdateNotifier />
+                      <DesktopDownloadNotifier />
+                      <LegacyPWAServiceWorkerMigration />
+                      <DevtoolsBrandBanner />
+                    </CapabilitiesProvider>
+                  </Sub2ApiBootstrapGate>
                 </DesktopBootstrap>
-                <Toaster />
               </AppearancePreferencesProvider>
+              <Toaster />
             </ThemeProvider>
           </AppI18nProvider>
         </BrandingProvider>

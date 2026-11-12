@@ -27,4 +27,10 @@ apps/desktop
 **/.venv
 .ruff_cache
 .codex
+.dsh
+.env
+.env.*
+**/*.db
+**/*.db-wal
+**/*.db-shm
 .DS_Store

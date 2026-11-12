@@ -3,8 +3,25 @@ package auth
 import (
 	"time"
 
+	sub2apiport "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/ports/sub2api"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/apperr"
 )
+
+// Sub2APIRejectionError adds allowlisted diagnostics without changing the
+// existing public error code/message or retaining the upstream error body.
+type Sub2APIRejectionError struct{ details sub2apiport.RejectionDetails }
+
+func (e *Sub2APIRejectionError) Error() string {
+	if e == nil {
+		return ErrSub2APIRejected.Error()
+	}
+	details := e.Details()
+	return ErrSub2APIRejected.Error() + " (stage=" + details.Stage + ", reason=" + details.Reason + ")"
+}
+func (*Sub2APIRejectionError) Unwrap() error { return ErrSub2APIRejected }
+func (e *Sub2APIRejectionError) Details() sub2apiport.RejectionDetails {
+	return sub2apiport.SafeRejectionDetails(e.details.Stage, e.details.Reason)
+}
 
 // AccountLockedError 携带账户解锁剩余时长，供传输层输出 Retry-After。
 type AccountLockedError struct {
@@ -29,6 +46,13 @@ func newAccountLockedError(lockedUntil *time.Time, now time.Time) error {
 const ProviderEmailConflictActionSignInThenBind = "sign_in_then_bind"
 
 var (
+	ErrSub2APIImportFailed   = apperr.New("auth.sub2api_import_failed", "no sub2api provider could be imported or reused; inspect import results")
+	ErrSub2APIDisabled       = apperr.New("auth.sub2api_disabled", "sub2api login is not enabled")
+	ErrSub2APIInvalidRequest = apperr.New("auth.sub2api_invalid_request", "invalid sub2api login request")
+	ErrSub2APIRejected       = apperr.New("auth.sub2api_rejected", "sub2api identity could not be verified")
+	ErrSub2APIUnavailable    = apperr.New("auth.sub2api_unavailable", "sub2api login is temporarily unavailable")
+	ErrSub2APINoKey          = apperr.New("auth.sub2api_no_usable_key", "no supported active sub2api API key is available")
+	ErrSub2APIGateway        = apperr.New("auth.sub2api_gateway_not_allowed", "sub2api gateway requires an explicit deployment configuration")
 	// ErrInvalidCredentials 用户名或密码错误。
 	ErrInvalidCredentials = apperr.New("auth.invalid_credentials", "invalid username or password")
 	// ErrAccountLocked 账户已被锁定。
@@ -202,3 +226,12 @@ func (e *ProviderEmailConflictError) Error() string {
 func (e *ProviderEmailConflictError) Unwrap() error {
 	return ErrProviderEmailConflict
 }
+
+// Sub2APIImportError exposes only locally classified import results, never credentials.
+type Sub2APIImportError struct {
+	Cause   error
+	Summary *Sub2APIImportSummary
+}
+
+func (e *Sub2APIImportError) Error() string { return e.Cause.Error() }
+func (e *Sub2APIImportError) Unwrap() error { return e.Cause }

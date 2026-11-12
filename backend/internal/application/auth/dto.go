@@ -8,6 +8,7 @@ import (
 
 // LoginResult 登录成功后的内部传输结构，不携带序列化标记。
 type LoginResult struct {
+	Sub2APIImport           *Sub2APIImportSummary
 	AccessToken             string
 	RefreshToken            string
 	SessionID               string

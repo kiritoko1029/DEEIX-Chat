@@ -22,10 +22,11 @@ const (
 
 // Provider 是一个用户自带 Key 的模型服务。API Key 只以密文保存，任何读取路径都不返回明文。
 type Provider struct {
-	ID          uint
-	PublicID    string
-	OwnerUserID uint
-	Name        string
+	ID             uint
+	PublicID       string
+	OwnerUserID    uint
+	Name           string
+	LastSyncedName string
 	// Icon 是用户选择的内置图标 slug；空串表示按服务地址自动匹配。
 	Icon string
 	// Protocol 是服务的接口协议，用于拉取模型目录，也是对话模型的默认协议。

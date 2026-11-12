@@ -135,6 +135,10 @@
       "verified": "Verified",
       "unverified": "Unverified"
     },
+    "externalProfile": {
+      "emailLabel": "sub2api source email",
+      "emailDescription": "From your sub2api external profile and shown for reference only. This is not a security email and cannot be used for password recovery or email binding."
+    },
     "actions": {
       "set": "Set",
       "update": "Update",

@@ -36,6 +36,14 @@ security:
   # Optional. Override only when using a compatible Turnstile verification proxy.
   turnstile_siteverify_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
+# Optional. Trusted sub2api login-link integration; see SUB2API.md.
+# Users must already have a usable sub2api API Key. HTTPS public endpoints only.
+sub2api:
+  enabled: false
+  base_url: "" # Management site origin, without /api/v1.
+  api_base_url: "" # Optional explicit gateway URL; required for a different origin.
+  allow_embedding: false # Opt in to framing only by the configured management origin; Cookie/browser restrictions still apply.
+
 branding:
   # Optional. Frontend product branding; changes take effect after restarting the app.
   title: DEEIX Chat

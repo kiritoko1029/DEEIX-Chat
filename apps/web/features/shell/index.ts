@@ -1,4 +1,5 @@
 export { AppVersionGuard } from "@/features/shell/components/providers/app-version-guard";
+export { RootEntry } from "@/features/shell/components/root-entry";
 export {
   ProjectWorkspace,
   ShareWorkspace,

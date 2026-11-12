@@ -20,6 +20,7 @@ import { NavUser } from "@/features/shell/components/navigation/nav-user";
 import { useOptionalAuthSession } from "@/shared/auth/auth-session-context";
 import { useBranding } from "@/shared/config/branding-provider";
 import { resolveAvatarImageSrc } from "@/shared/lib/avatar";
+import { resolveUserProfileDisplay } from "@/shared/auth/external-profile";
 
 export function AppSidebar({
   onCreateConversation,
@@ -30,13 +31,14 @@ export function AppSidebar({
   const t = useTranslations("common.navigation");
   const branding = useBranding();
   const sessionUser = useOptionalAuthSession()?.user;
-  const username = sessionUser?.username.trim() ?? "";
+  const profile = sessionUser ? resolveUserProfileDisplay(sessionUser) : null;
   const user = sessionUser
     ? {
-        name: sessionUser.displayName || username || t("fallbackUser"),
-        email: sessionUser.email || username || t("fallbackUser"),
+        name: profile?.name || t("fallbackUser"),
+        email: profile?.email || t("fallbackUser"),
         avatar: resolveAvatarImageSrc(sessionUser.avatarURL, sessionUser),
         role: sessionUser.role,
+        showNameInMenu: sessionUser.externalProfile?.provider === "sub2api",
       }
     : {
         name: branding.title,

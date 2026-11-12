@@ -8,6 +8,7 @@ import { SpinnerLabel } from "@/components/ui/spinner";
 import { AuthSessionProvider } from "@/shared/auth/auth-session-context";
 import { normalizeAuthNextPath } from "@/shared/auth/local-path";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
+import { hasSub2ApiBootstrap } from "@/shared/auth/sub2api-bootstrap";
 import { readAccessToken, SESSION_SNAPSHOT_CHANGED_EVENT, type SessionSnapshot } from "@/shared/auth/session";
 
 type AuthGuardStatus = "checking" | "ready";
@@ -69,7 +70,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const nextToken = snapshot?.accessToken ?? "";
       setAccessToken(nextToken || null);
       setStatus(nextToken ? "ready" : "checking");
-      if (!nextToken) {
+      if (!nextToken && !hasSub2ApiBootstrap()) {
         redirectToLogin();
       }
     }

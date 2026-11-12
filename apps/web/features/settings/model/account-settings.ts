@@ -1,5 +1,7 @@
 import type { ActiveSessionDTO, UserDTO } from "@/shared/api/auth-types";
 
+type AccountEmailUser = Pick<UserDTO, "email" | "emailSource" | "emailVerifiedAt" | "emailBootstrapUsedAt">;
+
 type Translate = (key: string, values?: Record<string, string | number>) => string;
 
 export function formatDateTime(value: string | null | undefined, locale = "en-US") {
@@ -39,7 +41,7 @@ export function resolveSessionIP(session: ActiveSessionDTO, t?: Translate) {
   return session.clientIP.trim() || t?.("session.unknownIP") || "Unknown IP";
 }
 
-export function shouldUseEmailBootstrap(viewer: UserDTO | null): boolean {
+export function shouldUseEmailBootstrap(viewer: AccountEmailUser | null): boolean {
   if (!viewer) {
     return false;
   }
@@ -49,14 +51,14 @@ export function shouldUseEmailBootstrap(viewer: UserDTO | null): boolean {
   return viewer.emailSource === "provider_unverified" && !viewer.emailVerifiedAt && !viewer.emailBootstrapUsedAt;
 }
 
-export function resolveEmailTitle(viewer: UserDTO | null, t?: Translate): string {
+export function resolveEmailTitle(viewer: AccountEmailUser | null, t?: Translate): string {
   if (!viewer?.email) {
     return t?.("email.label") || "Email";
   }
   return t?.("email.withAddress", { email: viewer.email }) || `Email (${viewer.email})`;
 }
 
-export function resolveEmailValue(viewer: UserDTO | null, emailVerificationEnabled: boolean, t?: Translate): string | undefined {
+export function resolveEmailValue(viewer: AccountEmailUser | null, emailVerificationEnabled: boolean, t?: Translate): string | undefined {
   if (!viewer?.email || !emailVerificationEnabled) {
     return undefined;
   }

@@ -164,6 +164,10 @@ type CreateInput struct {
 
 // Create 校验、检测并保存服务。Key 只在检测通过后加密落库，不会以明文形式返回。
 func (s *Service) Create(ctx context.Context, userID uint, input CreateInput, meta RequestMeta) (*domainpersonalprovider.Provider, error) {
+	return s.create(ctx, userID, input, meta, conv.NormalizePublicID(uuid.NewString()), "")
+}
+
+func (s *Service) create(ctx context.Context, userID uint, input CreateInput, meta RequestMeta, publicID, importedSource string) (*domainpersonalprovider.Provider, error) {
 	policy := s.policy()
 	if err := s.requireEnabled(userID, policy); err != nil {
 		return nil, err
@@ -187,18 +191,30 @@ func (s *Service) Create(ctx context.Context, userID uint, input CreateInput, me
 	if count >= int64(policy.MaxPerUser) {
 		return nil, ErrLimitReached
 	}
-	if err := s.ensureNotDuplicate(ctx, userID, candidate); err != nil {
-		return nil, err
+	if importedSource == "" {
+		if err := s.ensureNotDuplicate(ctx, userID, candidate); err != nil {
+			return nil, err
+		}
 	}
 	available, err := s.fetchModels(ctx, candidate.protocol, candidate.endpoint.BaseURL, candidate.apiKey)
 	if err != nil {
 		return nil, err
 	}
+	if importedSource != "" {
+		if len(available) == 0 {
+			return nil, ErrInvalidModels
+		}
+		for index, name := range available {
+			if index >= maxModelsCount {
+				break
+			}
+			input.Models = append(input.Models, ModelInput{Name: name})
+		}
+	}
 	models, err := selectModels(candidate.protocol, input.Models, available)
 	if err != nil {
 		return nil, err
 	}
-	publicID := conv.NormalizePublicID(uuid.NewString())
 	encrypted, err := s.encryptKey(candidate.apiKey, userID, publicID)
 	if err != nil {
 		return nil, err
@@ -207,22 +223,30 @@ func (s *Service) Create(ctx context.Context, userID uint, input CreateInput, me
 	if input.FromLink {
 		source = domainpersonalprovider.SourceLink
 	}
+	if importedSource != "" {
+		source = importedSource
+	}
 	checkedAt := s.now()
-	item, err := s.repo.Create(ctx, &domainpersonalprovider.Provider{
-		PublicID:      publicID,
-		OwnerUserID:   userID,
-		Name:          name,
-		Icon:          icon,
-		Protocol:      candidate.protocol,
-		BaseURL:       candidate.endpoint.BaseURL,
-		Host:          candidate.endpoint.Host,
-		APIKeyEnc:     encrypted,
-		KeyHint:       domainpersonalprovider.KeyHint(candidate.apiKey),
-		Models:        models,
-		Status:        domainpersonalprovider.StatusActive,
-		Source:        source,
-		LastCheckedAt: &checkedAt,
-	})
+	lastSyncedName := ""
+	if importedSource == "sub2api" {
+		lastSyncedName = name
+	}
+	item, err := s.createLimited(ctx, &domainpersonalprovider.Provider{
+		LastSyncedName: lastSyncedName,
+		PublicID:       publicID,
+		OwnerUserID:    userID,
+		Name:           name,
+		Icon:           icon,
+		Protocol:       candidate.protocol,
+		BaseURL:        candidate.endpoint.BaseURL,
+		Host:           candidate.endpoint.Host,
+		APIKeyEnc:      encrypted,
+		KeyHint:        domainpersonalprovider.KeyHint(candidate.apiKey),
+		Models:         models,
+		Status:         domainpersonalprovider.StatusActive,
+		Source:         source,
+		LastCheckedAt:  &checkedAt,
+	}, policy.MaxPerUser)
 	if err != nil {
 		return nil, err
 	}

@@ -149,6 +149,7 @@ func (LLMPlatformModelRoute) TableName() string {
 // LLMUserProvider 存储用户自带 Key 的模型服务（个人供应商）。
 // 与平台上游完全隔离：不参与平台路由、熔断与定价，只对 OwnerUserID 本人可用。
 type LLMUserProvider struct {
+	LastSyncedName string `gorm:"size:64;not null;default:'';comment:最后自动同步名称"`
 	ControlPlaneModel
 	PublicID      string     `gorm:"size:32;not null;default:'';uniqueIndex:idx_llm_user_providers_public_id;comment:对外公开ID"`
 	OwnerUserID   uint       `gorm:"not null;default:0;index:idx_llm_user_providers_owner;comment:所属用户ID"`

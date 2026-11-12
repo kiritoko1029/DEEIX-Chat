@@ -48,6 +48,9 @@ type Service struct {
 	auditWriter          auditWriter
 	avatarFileValidator  avatarFileValidator
 	providerAuthBridge   repository.ProviderAuthBridgeRepository
+	sub2apiClient        sub2apiClient
+	sub2apiIdentities    repository.Sub2APIIdentityRepository
+	sub2apiProviders     sub2apiProviderImporter
 }
 
 // GeoResolver 解析客户端 IP 的地理与网络归属信息。
@@ -488,7 +491,20 @@ func (s *Service) GetProfile(ctx context.Context, userID uint) (*domainuser.User
 }
 
 // buildUserView 内部构建带订阅快照的用户视图。
-func (s *Service) buildUserView(ctx context.Context, item domainuser.User) (userview.UserView, error) {
+func (s *Service) buildUserView(ctx context.Context, item domainuser.User) (view userview.UserView, err error) {
+	defer func() {
+		if err != nil {
+			return
+		}
+		if profiles, ok := s.sub2apiIdentities.(repository.Sub2APIProfileRepository); ok {
+			profile, profileErr := profiles.GetSub2APIProfile(ctx, item.ID)
+			if profileErr != nil && !errors.Is(profileErr, repository.ErrNotFound) {
+				err = profileErr
+				return
+			}
+			view.ExternalProfile = profile
+		}
+	}()
 	credential, credentialErr := s.repo.GetCredentialByUserID(ctx, item.ID)
 	if credentialErr != nil && !errors.Is(credentialErr, repository.ErrNotFound) {
 		return userview.UserView{}, credentialErr
@@ -515,7 +531,7 @@ func (s *Service) buildUserView(ctx context.Context, item domainuser.User) (user
 		return view, nil
 	}
 
-	view := userview.FromUser(item, &userview.SubscriptionState{
+	view = userview.FromUser(item, &userview.SubscriptionState{
 		PlanID:    subscription.PlanID,
 		PlanName:  subscription.PlanName,
 		Tier:      subscription.Tier,

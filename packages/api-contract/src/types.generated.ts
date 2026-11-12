@@ -324,6 +324,7 @@ export interface AuthUserResponse {
   emailBootstrapUsedAt: string | null;
   emailSource: string;
   emailVerifiedAt: string | null;
+  externalProfile?: ExternalProfileResponse;
   id: number;
   identityProviders: AuthUserIdentityProviderSummaryResponse[];
   initialSecurityRequired: boolean;
@@ -1712,6 +1713,13 @@ export interface ErrorLogResponse {
   userUsername: string;
 }
 
+export interface ExternalProfileResponse {
+  displayName: string;
+  email: string;
+  provider: "sub2api";
+  username: string;
+}
+
 export interface FeaturePolicyResponse {
   /** DesktopDownloadEnabled 为 true 时网页端用户菜单展示「下载桌面端」入口；桌面端内由前端自行隐藏。 */
   desktopDownloadEnabled: boolean;
@@ -2184,6 +2192,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+  sub2apiImport?: Sub2APIImportResponse;
   accessToken: string;
   expiresAt: string;
   refreshExpiresAt: string;
@@ -4261,6 +4270,38 @@ export interface StorageQuotaResponse {
   updatedAt: string;
   usedBytes: number;
   userID: number;
+}
+
+export interface Sub2APIExchangeRequest {
+  /**
+   * @minLength 1
+   * @maxLength 16384
+   */
+  token: string;
+  /**
+   * @min 1
+   * @max 9007199254740991
+   */
+  userID: number;
+}
+
+export interface Sub2APIImportItemResponse {
+  groupName: string;
+  keyID: number;
+  name: string;
+  providerID?: string;
+  reason?: string;
+  status: "imported" | "reused" | "skipped" | "failed";
+}
+
+export interface Sub2APIImportResponse {
+  eligible: number;
+  failed: number;
+  imported: number;
+  items: Sub2APIImportItemResponse[];
+  reused: number;
+  skipped: number;
+  total: number;
 }
 
 export interface SubmitFileEmbeddingsRequest {
@@ -9257,6 +9298,21 @@ export namespace Auth {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = LogoutResponseDoc;
+  }
+
+  /**
+   * @description 仅部署方开启时可用；校验远端身份并逐项复用或导入全部兼容 Key，保留本地 2FA
+   * @tags auth
+   * @name Sub2ApiExchangeCreate
+   * @summary 使用可信 sub2api 登录凭证换取 DEEIX Chat 会话
+   * @request POST:/auth/sub2api/exchange
+   */
+  export namespace Sub2ApiExchangeCreate {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = Sub2APIExchangeRequest;
+    export type RequestHeaders = {};
+    export type ResponseBody = LoginResponseDoc;
   }
 }
 

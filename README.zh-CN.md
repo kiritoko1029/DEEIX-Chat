@@ -24,6 +24,16 @@
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00add8" />
 </p>
 
+## sub2api 分支发布
+
+此分支新增受信 sub2api 链接登录、昵称邮箱展示同步和多个 Key 的独立模型服务。Web/Docker 使用 `2026.11.12` 这样的日期版本，Docker Hub 目标为 `195658/deeix-chat`。启用这些功能时，请使用本分支镜像，而不是未经修改的上游镜像。
+
+- [sub2api 配置与安全边界](<deploy/SUB2API.md>)
+- [GitHub Actions / Docker Hub 发布流程](<deploy/RELEASING.md>)
+- [v2026.11.12 发布说明](<docs/releases/2026.11.12.md>)
+
+下方保留上游项目介绍与原有文档。
+
 ## 项目简介
 
 DEEIX Chat 是一款开源可部署的 AI 平台，面向需要长期、稳定、统一使用多模型能力的个人、团队与企业。它用一个清晰的使用入口承载多个上游模型和服务商，将多模态对话、模型路由、文件与 RAG、MCP 工具、用量计费、身份认证、审计日志和运维控制整合到同一个产品中。

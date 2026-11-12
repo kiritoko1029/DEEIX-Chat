@@ -52,6 +52,13 @@ export async function login(username: string, password: string): Promise<LoginDa
   });
 }
 
+export async function exchangeSub2Api(userID: number, token: string): Promise<LoginData> {
+  return apiRequest<LoginData>("/api/v1/auth/sub2api/exchange", {
+    method: "POST",
+    body: { userID, token },
+  });
+}
+
 export async function startTwoFactorEmailVerification(challengeToken: string): Promise<EmailVerificationStartData> {
   return apiRequest<EmailVerificationStartData>("/api/v1/auth/2fa/email/start", {
     method: "POST",

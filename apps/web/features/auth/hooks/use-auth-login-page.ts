@@ -15,8 +15,10 @@ import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
 import { readAccessToken } from "@/shared/auth/session";
 import { isDesktopApp } from "@/shared/platform";
 import { openExternal } from "@/shared/platform/desktop-open";
-import { completeNativeSignIn, ensureLocalSession } from "@/shared/platform/desktop-session";
+import { authenticateExplicitly, ensureLocalSession } from "@/shared/platform/desktop-session";
 import { useLocalizedErrorMessage } from "@/i18n/use-localized-error";
+import { useAuthSub2ApiImportSummary } from "@/features/auth/hooks/use-auth-sub2api-import-summary";
+import { takePendingSub2ApiSummary } from "@/features/auth/model/sub2api-pending-summary";
 import {
   DEFAULT_LOGIN_OPTIONS,
   DEFAULT_LOGIN_SETTINGS,
@@ -39,6 +41,7 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
   const router = useRouter();
   const t = useTranslations("login");
   const resolveErrorMessage = useLocalizedErrorMessage();
+  const showImportSummary = useAuthSub2ApiImportSummary();
   const [settings, setSettings] = React.useState<LoginPageSettings>(DEFAULT_LOGIN_SETTINGS);
   const [options, setOptions] = React.useState<LoginOptionsData>(DEFAULT_LOGIN_OPTIONS);
   const [username, setUsername] = React.useState("");
@@ -98,6 +101,9 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
   }, [registerCodeCooldownSeconds, resetCodeCooldownSeconds, twoFactorEmailCodeCooldownSeconds]);
 
   React.useEffect(() => {
+    if (readTwoFactorChallenge()) {
+      return;
+    }
     let mounted = true;
     void resolveAccessToken()
       .then(async (token) => {
@@ -156,14 +162,16 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
   }, [canShowRegister, loginProviders.length, mode, passwordLoginEnabled, passwordResetEnabled]);
 
   const completeAuth = React.useCallback(
-    (result: LoginData) => {
-      // completeNativeSignIn writes the session snapshot and, on desktop, the
-      // keychain copy of the rotating refresh token.
+    (result: LoginData, completedChallenge = "") => {
+      // authenticateExplicitly committed memory and native credentials before
+      // releasing the isolation barrier; navigation cannot race that write.
       clearTwoFactorChallenge();
-      void completeNativeSignIn(result);
+      if (!result.accessToken) return;
+      const pendingSummary = takePendingSub2ApiSummary(completedChallenge);
+      showImportSummary(result.sub2apiImport ?? pendingSummary);
       router.replace(resolvedNextPath);
     },
-    [resolvedNextPath, router],
+    [resolvedNextPath, router, showImportSummary],
   );
 
   const resetRegisterTurnstile = React.useCallback(() => {
@@ -190,9 +198,9 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
           toast.error(t("toasts.codeRequired"));
           return;
         }
-        const result = twoFactorChallengeToken
-          ? await verifyTwoFactorLogin(twoFactorChallengeToken, submittedOTP, twoFactorVerificationMethod)
-          : await login(submittedUsername, submittedPassword);
+        const result = await authenticateExplicitly(() => twoFactorChallengeToken
+          ? verifyTwoFactorLogin(twoFactorChallengeToken, submittedOTP, twoFactorVerificationMethod)
+          : login(submittedUsername, submittedPassword));
         if (result.twoFactorRequired) {
           const methods: SecurityVerificationMethod[] = result.verificationMethods?.length ? result.verificationMethods : ["two_factor"];
           // A fresh challenge supersedes any stored provider-login challenge.
@@ -209,7 +217,7 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
           return;
         }
 
-        completeAuth(result);
+        completeAuth(result, twoFactorChallengeToken);
       } catch (error) {
         if (isTwoFactorChallengeExpired(error)) {
           clearTwoFactorChallenge();
@@ -337,12 +345,12 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
       }
       setSubmitting(true);
       try {
-        const result = await completeEmailRegistration(
+        const result = await authenticateExplicitly(() => completeEmailRegistration(
           registerEmail,
           registerPassword,
           emailVerificationEnabled ? registerCode : "",
           registerTurnstileRequired ? registerTurnstileToken : undefined,
-        );
+        ));
         completeAuth(result);
       } catch (error) {
         toast.error(resolveErrorMessage(error, t("toasts.registerFailed")));

@@ -30,6 +30,7 @@ export {
   resolveModelOptionPolicyProtocol,
   uniqueModelOptionPaths,
 } from "@/entities/model/lib/model-option-policy";
+export { findExactModelRef, parsePersonalModelRef } from "@/entities/model/lib/model-ref";
 export { resolveModelPresentationGroup } from "@/entities/model/lib/model-presentation";
 export {
   isReasoningEffortLevel,

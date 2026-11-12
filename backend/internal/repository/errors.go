@@ -3,6 +3,7 @@ package repository
 import "errors"
 
 var (
+	ErrPersonalProviderLimitReached = errors.New("personal provider limit reached")
 	// ErrNotFound 表示记录不存在。
 	ErrNotFound = errors.New("record not found")
 	// ErrDuplicate 表示违反唯一约束。

@@ -2,6 +2,7 @@ import { getConversationDefaultModelCandidate } from "@/shared/api/conversation"
 import { listPublicModels } from "@/shared/api/model";
 import type { PublicModelDTO } from "@/shared/api/model-types";
 import { loadUserSettingsSnapshot } from "@/entities/user-settings";
+import { findExactModelRef } from "@/entities/model";
 
 export type ConversationDefaultModelSource =
   | "explicit"
@@ -24,14 +25,6 @@ type ResolveConversationDefaultModelInput = {
   userDefaultModel?: string;
 };
 
-function findAvailableModel(models: PublicModelDTO[], platformModelName: string): string {
-  const normalizedName = platformModelName.trim();
-  if (!normalizedName) {
-    return "";
-  }
-  return models.some((item) => item.platformModelName === normalizedName) ? normalizedName : "";
-}
-
 export async function resolveConversationDefaultModel({
   accessToken,
   explicitModel,
@@ -40,25 +33,25 @@ export async function resolveConversationDefaultModel({
   userDefaultModel,
 }: ResolveConversationDefaultModelInput): Promise<ConversationDefaultModelResult> {
   const models = availableModels ?? await listPublicModels(accessToken);
-  const explicit = findAvailableModel(models, explicitModel ?? "");
+  const explicit = findExactModelRef(models, explicitModel ?? "");
   if (explicit) {
     return { platformModelName: explicit, source: "explicit" };
   }
 
-  const projectDefault = findAvailableModel(models, projectDefaultModel ?? "");
+  const projectDefault = findExactModelRef(models, projectDefaultModel ?? "");
   if (projectDefault) {
     return { platformModelName: projectDefault, source: "project_default" };
   }
 
   const defaultModel = userDefaultModel
     ?? (await loadUserSettingsSnapshot(accessToken))["chat.default_model"];
-  const userDefault = findAvailableModel(models, defaultModel ?? "");
+  const userDefault = findExactModelRef(models, defaultModel ?? "");
   if (userDefault) {
     return { platformModelName: userDefault, source: "user_default" };
   }
 
   const candidate = await getConversationDefaultModelCandidate(accessToken).catch((): null => null);
-  const candidateModel = findAvailableModel(models, candidate?.platformModelName ?? "");
+  const candidateModel = findExactModelRef(models, candidate?.platformModelName ?? "");
   if (candidateModel) {
     return {
       platformModelName: candidateModel,

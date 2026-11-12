@@ -43,6 +43,19 @@ docker build -t deeix-chat:local .
 cd deploy && DEEIX_CHAT_IMAGE=deeix-chat:local docker compose up -d
 ```
 
+## Date releases and Docker Hub
+
+The sub2api fork publishes Web/API images to `195658/deeix-chat` using date versions,
+for example `2026.11.12`. Set `DEEIX_CHAT_IMAGE=195658/deeix-chat:2026.11.12` when
+starting the selected Compose profile. Check the Image workflow before pulling a new tag.
+See [publishing and verification](<RELEASING.md>) for Actions secrets, tag policy and multiarch checks.
+
+## sub2api login links
+
+For trusted sub2api access-token links that sign users in and import their personal model
+service, see [sub2api integration](<SUB2API.md>). This opt-in integration requires a build
+containing the feature; an unchanged upstream image will not enable it.
+
 ## Optional services
 
 Each service under `services/` is self-contained (its own build context) and attaches to

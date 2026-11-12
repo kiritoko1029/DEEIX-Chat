@@ -48,6 +48,7 @@ export function NavUser({
     email: string;
     avatar: string;
     role?: string;
+    showNameInMenu?: boolean;
   };
 }) {
   const t = useTranslations("common.navigation");
@@ -126,9 +127,12 @@ export function NavUser({
             }}
           >
             <DropdownMenuLabel className="px-2 py-2 font-normal text-muted-foreground">
-              <span className="block truncate" title={user.email}>
-                {user.email}
-              </span>
+              {user.showNameInMenu ? <span className="block truncate font-medium text-foreground" title={user.name}>{user.name}</span> : null}
+              {user.email !== user.name || !user.showNameInMenu ? (
+                <span className="block truncate" title={user.email}>
+                  {user.email}
+                </span>
+              ) : null}
             </DropdownMenuLabel>
             <DropdownMenuGroup>
               <DropdownMenuItem onSelect={navigateFromMenu("/settings/general")}>

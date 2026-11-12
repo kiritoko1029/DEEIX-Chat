@@ -3,6 +3,7 @@
 // Desktop session bootstrap: connects the shared session snapshot and the API
 // client to the Tauri shell. No-op in browsers.
 
+import { authTransition, assertCurrentAuthentication, SupersededAuthenticationError } from "@/shared/auth/auth-transition";
 import type { LoginData } from "@/shared/api/auth-types";
 import { registerRuntimeApiBaseURLResolver } from "@/shared/api/http-client";
 import { registerSessionClearedHandler, writeSessionSnapshot } from "@/shared/auth/session";
@@ -53,11 +54,40 @@ export async function waitForApiServer(): Promise<boolean> {
  * Record an authenticated session. Every sign-in path goes through here; on
  * desktop the refresh token is handed to the shell and never read back.
  */
-export async function completeNativeSignIn(result: LoginData): Promise<void> {
-  writeSessionSnapshot({ accessToken: result.accessToken, sessionID: result.sessionID });
+// Called inside authTransition.run: shell writes and HTTP exchanges must share
+// the same queue, so a superseded response cannot overwrite newer credentials.
+export async function completeNativeSignIn(result: LoginData, generation: number): Promise<void> {
+  assertCurrentAuthentication(generation);
+  if (!result.accessToken || !result.sessionID || result.twoFactorRequired) throw new Error("Incomplete sign-in");
   if (isDesktopApp() && result.refreshToken) {
     await storeSession(result.refreshToken);
+    if (!authTransition.isCurrent(generation)) {
+      await clearSession();
+      throw new SupersededAuthenticationError();
+    }
   }
+  assertCurrentAuthentication(generation);
+  authTransition.complete(generation);
+  writeSessionSnapshot({ accessToken: result.accessToken, sessionID: result.sessionID });
+}
+
+export async function clearNativeSessionForAccountSwitch(): Promise<void> {
+  if (isDesktopApp()) await clearSession();
+}
+
+// Explicit credential / registration / provider / 2FA sign-in can release an
+// isolation barrier. Refresh and peer snapshots never can.
+export function authenticateExplicitly(request: () => Promise<LoginData>): Promise<LoginData> {
+  const generation = authTransition.beginSignIn();
+  return authTransition.run(async () => {
+    assertCurrentAuthentication(generation);
+    if (authTransition.blocked()) await clearNativeSessionForAccountSwitch();
+    assertCurrentAuthentication(generation);
+    const result = await request();
+    assertCurrentAuthentication(generation);
+    if (!result.twoFactorRequired) await completeNativeSignIn(result, generation);
+    return result;
+  });
 }
 
 /**
@@ -66,12 +96,19 @@ export async function completeNativeSignIn(result: LoginData): Promise<void> {
  * grant. Returns true when a session is now available.
  */
 export async function ensureLocalSession(): Promise<boolean> {
-  if (!isDesktopApp() || readServerMode() !== "local") {
+  if (authTransition.blocked() || !isDesktopApp() || readServerMode() !== "local") {
     return false;
   }
-  const credentials = await localSignIn();
-  // Sign-in may have restarted the sidecar on a new port.
-  await loadServer();
-  writeSessionSnapshot(credentials);
-  return true;
+  const generation = authTransition.generation();
+  return authTransition.run(async () => {
+    if (authTransition.blocked() || !authTransition.isCurrent(generation)) return false;
+    const credentials = await localSignIn();
+    await loadServer();
+    if (authTransition.blocked() || !authTransition.isCurrent(generation)) {
+      await clearSession();
+      return false;
+    }
+    writeSessionSnapshot(credentials);
+    return true;
+  });
 }

@@ -35,6 +35,7 @@ type IdentityProviderSummary struct {
 // UserView 面向应用层传递的用户视图
 // 序列化由 transport 层的响应 DTO 负责。
 type UserView struct {
+	ExternalProfile         *domainuser.ExternalProfile
 	ID                      uint
 	PublicID                string
 	Username                string

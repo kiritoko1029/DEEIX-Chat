@@ -1,36 +1,52 @@
 name: Image
 
-# Builds the runtime image once per architecture and publishes it to GHCR and, when its secrets are
-# configured, Docker Hub.
-#
-#   * One build serves both registries. They used to be two workflows that built the very same image
-#     independently, so every push paid for four builds instead of two.
-#   * The Dockerfile keeps its dependency and compiler caches (pnpm store, Go module and build caches)
-#     in BuildKit cache mounts. Those live inside the builder and vanish with a GitHub-hosted runner,
-#     so every run used to download and compile from scratch. They are saved to and restored from
-#     actions/cache around the build (buildkit-cache-dance), the approach the Docker documentation
-#     recommends for cache mounts in GitHub Actions. The Dockerfile itself stays the single build
-#     path: `docker build .` and this workflow produce the same image.
-#   * The layer cache is exported with mode=min (final stage only). With the cache mounts restored,
-#     intermediate layers are cheap to rebuild and not worth the repository cache quota.
-
+# Publish Web/API images only from version tags. Branch builds run without push in CI.
+# A stable tag push promotes latest; prereleases and manual tag rebuilds never do.
 on:
   push:
-    branches:
-      - main
-      - dev
     tags:
       - "v*.*.*"
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+# Serialize publication across tags so architecture merges cannot race latest.
+# Do not cancel an in-progress release halfway through publishing registries.
+concurrency:
+  group: image-publish
+  cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release and Docker Hub configuration
+    runs-on: ubuntu-24.04
+    outputs:
+      plan: ${{ steps.release.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Validate tag, version and registry target
+        id: release
+        env:
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: node scripts/image-release.mjs
+      - name: Verify synchronized runtime versions
+        run: |
+          node scripts/sync-version.mjs --check workspace
+          node scripts/sync-version.mjs --check web
+          node scripts/sync-version.mjs --check backend
+
   build:
     name: Build (${{ matrix.arch }})
+    needs: validate
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -41,11 +57,10 @@ jobs:
           - arch: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Set up Buildx
         id: buildx
         uses: docker/setup-buildx-action@v4
@@ -81,62 +96,40 @@ jobs:
             }
           skip-extraction: ${{ steps.mounts.outputs.cache-hit }}
 
-      # Docker Hub is optional: without its secrets the image is still published to GHCR.
-      - name: Resolve image names
-        id: image
-        shell: bash
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          repository=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
-          images="ghcr.io/$repository"
-          if [[ -n "$DOCKERHUB_TOKEN" ]]; then
-            namespace=$(printf '%s' "${DOCKERHUB_USERNAME:-${GITHUB_REPOSITORY_OWNER}}" | tr '[:upper:]' '[:lower:]')
-            images+=$'\n'"$namespace/${repository#*/}"
-            echo "dockerhub=true" >> "$GITHUB_OUTPUT"
-          fi
-          {
-            echo "images<<__EOF__"
-            echo "$images"
-            echo "__EOF__"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ steps.image.outputs.images }}
-          tags: |
-            type=ref,event=branch,suffix=-${{ matrix.arch }}
-            # Tag refs arrive either as pushes or via workflow_dispatch from Release Tag.
-            type=raw,value=${{ github.ref_name }},suffix=-${{ matrix.arch }},enable=${{ github.ref_type == 'tag' }}
-            type=raw,value=latest-${{ matrix.arch }},enable=${{ github.ref == 'refs/heads/main' }}
-
       - name: Login to GHCR
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Login to Docker Hub
-        if: steps.image.outputs.dockerhub == 'true'
         uses: docker/login-action@v4
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and publish
+      # Run-scoped staging tags keep manifests independent of mutable release aliases.
+      - name: Resolve staging tags
+        id: staging
+        env:
+          PLAN: ${{ needs.validate.outputs.plan }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          tags=$(jq -r --arg arch "$ARCH" '.staging as $staging | [.images[] + ":" + $staging + "-" + $arch] | join(",")' <<< "$PLAN")
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+      - name: Build and publish native image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.staging.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ fromJSON(needs.validate.outputs.plan).version }}
           build-args: |
             GIT_COMMIT=${{ github.sha }}
             REFRESH_CATALOG_SNAPSHOTS=true
@@ -144,73 +137,46 @@ jobs:
           cache-to: type=gha,scope=image-${{ matrix.arch }},mode=min
 
   merge:
-    name: Merge
-    needs:
-      - build
-    runs-on: ubuntu-latest
-
+    name: Publish and verify multiarch manifests
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
     steps:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
-
-      - name: Resolve image names
-        id: image
-        shell: bash
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          repository=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
-          images="ghcr.io/$repository"
-          if [[ -n "$DOCKERHUB_TOKEN" ]]; then
-            namespace=$(printf '%s' "${DOCKERHUB_USERNAME:-${GITHUB_REPOSITORY_OWNER}}" | tr '[:upper:]' '[:lower:]')
-            images+=$'\n'"$namespace/${repository#*/}"
-            echo "dockerhub=true" >> "$GITHUB_OUTPUT"
-          fi
-          {
-            echo "images<<__EOF__"
-            echo "$images"
-            echo "__EOF__"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ steps.image.outputs.images }}
-          tags: |
-            type=ref,event=branch
-            type=raw,value=${{ github.ref_name }},enable=${{ github.ref_type == 'tag' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
       - name: Login to GHCR
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Login to Docker Hub
-        if: steps.image.outputs.dockerhub == 'true'
         uses: docker/login-action@v4
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Create manifest lists
+      - name: Create and verify manifest lists
+        env:
+          PLAN: ${{ needs.validate.outputs.plan }}
         run: |
           set -euo pipefail
-          jq -cr '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
-            docker buildx imagetools create \
-              -t "$tag" \
-              "${tag}-amd64" \
-              "${tag}-arm64"
-          done
-
-      - name: Inspect images
-        run: |
-          set -euo pipefail
-          jq -cr '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
-            docker buildx imagetools inspect "$tag"
-          done
+          staging=$(jq -r .staging <<< "$PLAN")
+          while IFS= read -r image; do
+            args=()
+            while IFS= read -r tag; do
+              args+=(--tag "$image:$tag")
+            done < <(jq -r '.tags[]' <<< "$PLAN")
+            docker buildx imagetools create "${args[@]}" "$image:$staging-amd64" "$image:$staging-arm64"
+            while IFS= read -r tag; do
+              docker buildx imagetools inspect "$image:$tag" --raw | jq -e '
+                [.manifests[].platform | select(.os == "linux") | .architecture] |
+                (index("amd64") != null and index("arm64") != null)'
+              echo "Verified $image:$tag (linux/amd64, linux/arm64)" >> "$GITHUB_STEP_SUMMARY"
+            done < <(jq -r '.tags[]' <<< "$PLAN")
+          done < <(jq -r '.images[]' <<< "$PLAN")
+          echo "Docker Hub and GHCR multiarch publication completed." >> "$GITHUB_STEP_SUMMARY"
+      - name: Report incomplete publication
+        if: failure()
+        run: echo "Publication failed or is incomplete. Do not assume all Docker Hub tags were published; inspect logs and rerun all jobs." >> "$GITHUB_STEP_SUMMARY"

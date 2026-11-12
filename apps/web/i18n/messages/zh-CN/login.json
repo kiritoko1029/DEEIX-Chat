@@ -73,5 +73,65 @@
       "signInExistingAccount": "登录已有账号"
     }
   },
+  "sub2api": {
+    "loading": "登录中",
+    "loadingDescription": "正在校验免登录链接，请稍候。",
+    "errorTitle": "无法完成免登录",
+    "invalidLink": "免登录链接不完整或无效，请获取新链接后重试。",
+    "exchangeFailed": "无法完成接入，请检查网络或返回 sub2api 重新打开。此提示不代表 token 一定已过期。",
+    "sessionBinding": "sub2api 拒绝了服务端校验：会话绑定的 IP 或浏览器指纹不一致。请联系管理员配置专用授权交接；本应用不会绕过会话绑定。",
+    "tokenRejected": "sub2api 未接受登录凭据。请在 sub2api 重新登录后重新打开入口，不要复制已清理的地址栏链接。",
+    "identityMismatch": "链接用户 ID 或 API Key 归属与已验证身份不一致，已拒绝接入。请从当前账号重新打开入口。",
+    "userInactive": "sub2api 用户当前不可用，请检查账号状态。",
+    "keyAccessDenied": "身份校验后，sub2api 拒绝读取该用户的 API Key。请检查账号权限与会话状态。",
+    "noUsableKey": "该账号没有可自动导入的有效 Key。请检查 Key 是否已绑定启用的 OpenAI、Anthropic 或 Gemini 分组，以及有效期和额度。",
+    "serviceDisabled": "本部署尚未启用 sub2api 接入或个人模型服务，请联系管理员。",
+    "gatewayNotAllowed": "模型网关地址未获部署方信任，请由管理员显式配置网关地址。",
+    "upstreamUnavailable": "无法读取 sub2api 响应，可能是网络、超时或接口版本差异，请稍后重新打开入口。",
+    "rateLimited": "接入请求过于频繁，请稍后重新打开入口。",
+    "providerUnavailable": "个人模型服务导入或模型探测失败，请检查主机限制、服务数量上限、已有服务状态和 Key 可用性。",
+    "twoFactorFailed": "无法启动两步验证，请返回普通登录。",
+    "importSummary": {
+      "ready": "已就绪 {count} 个服务，可在模型列表手动选择",
+      "partial": "已就绪 {count} 个服务，部分 Key 未导入",
+      "none": "暂无已就绪服务，以下 Key 未导入",
+      "manualSelection": "已成功的服务可在模型列表手动选择；不同 Key 不会自动轮询或故障切换。",
+      "unimported": "查看未导入项（{count}）",
+      "noItemDetails": "服务端未提供逐项详情，请根据上方计数检查 Key 状态。",
+      "counts": {
+        "total": "全部",
+        "eligible": "有效",
+        "imported": "新导入",
+        "reused": "复用",
+        "skipped": "跳过",
+        "failed": "失败"
+      },
+      "status": {
+        "skipped": "已跳过",
+        "failed": "导入失败"
+      },
+      "reasons": {
+        "quota": "Key 超出额度或额度已耗尽",
+        "probe": "模型服务或模型列表探测失败",
+        "unsupported": "分组或模型协议不受支持",
+        "two-factor": "本地两步验证账号此次仅复用已有服务；此 Key 尚未导入，完成验证不会自动补导入",
+        "limit": "已达到个人模型服务数量上限，请调整后台限额或移除不需要的服务",
+        "timeout": "导入时间预算已耗尽，可从 sub2api 重新进入以继续导入",
+        "inactive": "Key 或分组已停用",
+        "expired": "Key 已过期",
+        "key-invalid": "Key 格式或额度数据无效",
+        "group-invalid": "Key 未绑定有效分组",
+        "gateway": "网关地址未获部署方信任",
+        "suspended": "对应个人服务已被管理员停用，不会自动恢复",
+        "disabled": "对应个人服务已停用或没有启用模型，不会自动恢复",
+        "credential-changed": "已导入服务的密钥、地址或协议已变化，需要在设置中处理",
+        "duplicate": "服务标识发生冲突，未覆盖已有记录",
+        "blocked-host": "网关主机被部署方的安全策略阻止",
+        "feature-disabled": "个人模型服务功能已关闭",
+        "other": "未导入，请稍后重试或联系管理员"
+      }
+    },
+    "backToLogin": "返回普通登录"
+  },
   "registerInBrowser": "在浏览器中注册"
 }

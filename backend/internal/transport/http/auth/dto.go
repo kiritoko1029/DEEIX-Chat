@@ -5,6 +5,7 @@ import (
 
 	appauth "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/auth"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/userview"
+	domainuser "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/user"
 )
 
 // LoginRequest 登录请求。
@@ -354,6 +355,7 @@ type UpdateCurrentSessionLocationRequest struct {
 
 // UserResponse 面向前端的用户视图响应。
 type UserResponse struct {
+	ExternalProfile         *ExternalProfileResponse              `json:"externalProfile,omitempty"`
 	ID                      uint                                  `json:"id"`
 	PublicID                string                                `json:"publicID"`
 	Username                string                                `json:"username"`
@@ -406,14 +408,15 @@ type UserIdentityProviderSummaryResponse struct {
 
 // LoginResponse 登录响应。
 type LoginResponse struct {
-	AccessToken             string       `json:"accessToken"`
-	SessionID               string       `json:"sessionID"`
-	ExpiresAt               time.Time    `json:"expiresAt"`
-	RefreshExpiresAt        time.Time    `json:"refreshExpiresAt"`
-	User                    UserResponse `json:"user"`
-	TwoFactorRequired       bool         `json:"twoFactorRequired"`
-	TwoFactorChallengeToken string       `json:"twoFactorChallengeToken,omitempty"`
-	VerificationMethods     []string     `json:"verificationMethods,omitempty"`
+	Sub2APIImport           *Sub2APIImportResponse `json:"sub2apiImport,omitempty"`
+	AccessToken             string                 `json:"accessToken"`
+	SessionID               string                 `json:"sessionID"`
+	ExpiresAt               time.Time              `json:"expiresAt"`
+	RefreshExpiresAt        time.Time              `json:"refreshExpiresAt"`
+	User                    UserResponse           `json:"user"`
+	TwoFactorRequired       bool                   `json:"twoFactorRequired"`
+	TwoFactorChallengeToken string                 `json:"twoFactorChallengeToken,omitempty"`
+	VerificationMethods     []string               `json:"verificationMethods,omitempty"`
 	// RefreshToken 仅在原生客户端（X-Client-Platform: desktop|mobile）请求时填充，
 	// 由客户端存入系统 keychain / SecureStore；浏览器响应中始终为空。
 	RefreshToken string `json:"refreshToken,omitempty"`
@@ -651,6 +654,7 @@ type ErrorDoc struct {
 // toUserResponse 将 userview.UserView 映射为响应 DTO。
 func toUserResponse(v userview.UserView) UserResponse {
 	return UserResponse{
+		ExternalProfile:         toExternalProfileResponse(v.ExternalProfile),
 		ID:                      v.ID,
 		PublicID:                v.PublicID,
 		Username:                v.Username,
@@ -710,6 +714,7 @@ func toUserIdentityProviderSummaryResponses(items []userview.IdentityProviderSum
 // toLoginResponse 将 LoginResult 映射为响应 DTO。
 func toLoginResponse(d *appauth.LoginResult) LoginResponse {
 	return LoginResponse{
+		Sub2APIImport:           toSub2APIImportResponse(d.Sub2APIImport),
 		AccessToken:             d.AccessToken,
 		SessionID:               d.SessionID,
 		ExpiresAt:               d.ExpiresAt,
@@ -943,4 +948,46 @@ func toUpdateCurrentSessionLocationInput(req UpdateCurrentSessionLocationRequest
 		AccuracyMeters: req.AccuracyMeters,
 		Timezone:       req.Timezone,
 	}
+}
+
+// ExternalProfileResponse is display-only; it never represents a verified local email.
+type ExternalProfileResponse struct {
+	Provider    string `json:"provider" enums:"sub2api"`
+	DisplayName string `json:"displayName"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+}
+type Sub2APIImportResponse struct {
+	Total    int                         `json:"total"`
+	Eligible int                         `json:"eligible"`
+	Imported int                         `json:"imported"`
+	Reused   int                         `json:"reused"`
+	Skipped  int                         `json:"skipped"`
+	Failed   int                         `json:"failed"`
+	Items    []Sub2APIImportItemResponse `json:"items"`
+}
+type Sub2APIImportItemResponse struct {
+	KeyID      int64  `json:"keyID"`
+	Name       string `json:"name"`
+	GroupName  string `json:"groupName"`
+	ProviderID string `json:"providerID,omitempty"`
+	Status     string `json:"status" enums:"imported,reused,skipped,failed"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+func toExternalProfileResponse(profile *domainuser.ExternalProfile) *ExternalProfileResponse {
+	if profile == nil {
+		return nil
+	}
+	return &ExternalProfileResponse{Provider: profile.Provider, DisplayName: profile.DisplayName, Username: profile.Username, Email: profile.Email}
+}
+func toSub2APIImportResponse(summary *appauth.Sub2APIImportSummary) *Sub2APIImportResponse {
+	if summary == nil {
+		return nil
+	}
+	result := &Sub2APIImportResponse{Total: summary.Total, Eligible: summary.Eligible, Imported: summary.Imported, Reused: summary.Reused, Skipped: summary.Skipped, Failed: summary.Failed, Items: make([]Sub2APIImportItemResponse, 0, len(summary.Items))}
+	for _, item := range summary.Items {
+		result.Items = append(result.Items, Sub2APIImportItemResponse{KeyID: item.KeyID, Name: item.Name, GroupName: item.GroupName, ProviderID: item.ProviderID, Status: item.Status, Reason: item.Reason})
+	}
+	return result
 }

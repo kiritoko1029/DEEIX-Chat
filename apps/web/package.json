@@ -1,6 +1,6 @@
 {
   "name": "@deeix/web",
-  "version": "0.4.6",
+  "version": "2026.11.12",
   "private": true,
   "sideEffects": [
     "*.css",
@@ -22,11 +22,13 @@
     "analyze:output": "next experimental-analyze --output",
     "start": "next start",
     "typecheck": "tsc --noEmit --pretty false",
+    "test": "node --test shared/auth/sub2api-link.test.ts shared/auth/sub2api-coordinator.test.ts shared/auth/auth-transition.test.ts shared/auth/sub2api-failure.test.ts features/settings/model/account-settings.test.ts entities/model/lib/model-ref.test.ts features/auth/model/sub2api-import-summary.test.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm check:arch",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "clean": "rm -rf .next out",
-    "check:arch": "node scripts/check-architecture.mjs"
+    "check:arch": "node scripts/check-architecture.mjs",
+    "test:sub2api:browser": "node scripts/test-sub2api-browser.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

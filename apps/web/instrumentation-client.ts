@@ -1,5 +1,11 @@
 // Runs once in the browser before hydration (Next.js client instrumentation).
 
+import { installSub2ApiCapture } from "@/shared/auth/sub2api-bootstrap";
+
+if (typeof window !== "undefined") {
+  installSub2ApiCapture();
+}
+
 // Dev only: React's RSC performance tracks call performance.measure() with
 // ranges WebKit rejects (TypeError), which trips the Next error overlay.
 if (process.env.NODE_ENV === "development" && typeof performance !== "undefined") {

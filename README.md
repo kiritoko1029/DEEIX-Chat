@@ -24,6 +24,16 @@
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00add8" />
 </p>
 
+## sub2api fork releases
+
+This branch adds trusted sub2api sign-in links, display-profile synchronization, and independent multi-Key model providers. Web/Docker releases use date versions such as `2026.11.12`; the Docker Hub target is `195658/deeix-chat`. Use this fork's image rather than an unchanged upstream image when enabling these features.
+
+- [sub2api setup and security boundaries](<deploy/SUB2API.md>)
+- [GitHub Actions / Docker Hub publishing](<deploy/RELEASING.md>)
+- [v2026.11.12 release notes](<docs/releases/2026.11.12.md>)
+
+The upstream project overview and documentation follow below.
+
 ## Overview
 
 DEEIX Chat is an open-source, deployable AI platform for individuals, teams, and enterprises that need long-term, stable, and unified access to multiple model providers. It provides one clear entry point for multiple upstream models and providers, integrating multimodal chat, model routing, files and RAG, MCP tools, usage billing, identity, audit logs, and operational controls into one product.

@@ -1,4 +1,5 @@
 import { isDesktopApp } from "@/shared/platform/runtime";
+import { authTransition } from "./auth-transition.ts";
 import { isRecord } from "@/shared/lib/type-guards";
 
 export type SessionSnapshot = {
@@ -72,7 +73,7 @@ function ensureSessionChannel(): BroadcastChannel | null {
       if (!isRecord(message) || message.type !== SESSION_CHANNEL_MESSAGE_TYPE || !isSessionSnapshot(message.snapshot)) {
         return;
       }
-      applySessionSnapshot(message.snapshot, { syncPeers: false });
+      if (authTransition.acceptsPeers()) applySessionSnapshot(message.snapshot, { syncPeers: false });
     };
   } catch {
     sessionChannel = null;
@@ -100,6 +101,7 @@ function publishSessionSnapshotChanged(): void {
 }
 
 function applySessionSnapshot(next: Partial<SessionSnapshot>, options: SessionSnapshotWriteOptions): void {
+  if (next.accessToken && authTransition.blocked()) return;
   const previousAccessToken = sessionSnapshot.accessToken;
   const previousSessionID = sessionSnapshot.sessionID;
   if (typeof next.accessToken === "string") sessionSnapshot.accessToken = next.accessToken;
@@ -115,18 +117,19 @@ function applySessionSnapshot(next: Partial<SessionSnapshot>, options: SessionSn
 
 export function readAccessToken(): string {
   ensureSessionChannel();
-  return sessionSnapshot.accessToken;
+  return authTransition.blocked() ? "" : sessionSnapshot.accessToken;
 }
 
 export function readSessionID(): string {
   ensureSessionChannel();
-  return sessionSnapshot.sessionID;
+  return authTransition.blocked() ? "" : sessionSnapshot.sessionID;
 }
 
 export function readSessionSnapshot(): SessionSnapshot {
   ensureSessionChannel();
   return {
-    ...sessionSnapshot,
+    accessToken: readAccessToken(),
+    sessionID: readSessionID(),
   };
 }
 
@@ -177,3 +180,12 @@ export function clearSessionAndRedirectToLogin(): void {
     .catch(() => undefined)
     .finally(redirect);
 }
+
+// Synchronous invalidation runs before the bootstrap gate or any navigation effects.
+authTransition.subscribe(() => {
+  if (!authTransition.blocked()) return;
+  sessionRevision += 1;
+  sessionSnapshot.accessToken = "";
+  sessionSnapshot.sessionID = "";
+  queueMicrotask(dispatchSessionSnapshotChanged);
+});

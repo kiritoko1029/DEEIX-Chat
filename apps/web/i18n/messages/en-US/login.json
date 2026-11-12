@@ -73,5 +73,65 @@
       "signInExistingAccount": "Sign in to existing account"
     }
   },
+  "sub2api": {
+    "loading": "Signing in",
+    "loadingDescription": "Verifying your secure sign-in link. Please wait.",
+    "errorTitle": "Secure sign-in was not completed",
+    "invalidLink": "This sign-in link is incomplete or invalid. Request a new link and try again.",
+    "exchangeFailed": "Sign-in could not be completed. Check your connection or reopen the entry from sub2api. This does not necessarily mean the token expired.",
+    "sessionBinding": "sub2api rejected server verification because the session IP or browser fingerprint changed. Ask the administrator for a dedicated authorization handoff; session binding is not bypassed.",
+    "tokenRejected": "sub2api did not accept the login credential. Sign in to sub2api again and reopen its entry; do not copy the already-cleaned address bar URL.",
+    "identityMismatch": "The link user ID or API Key owner does not match the verified identity. Reopen the entry from the correct account.",
+    "userInactive": "The sub2api user is not active. Check the account status.",
+    "keyAccessDenied": "Identity verification passed, but sub2api denied access to the user's API Keys. Check account permissions and session status.",
+    "noUsableKey": "No eligible Key is available. Check that it belongs to an active OpenAI, Anthropic or Gemini group, has not expired and has remaining quota.",
+    "serviceDisabled": "This deployment has not enabled sub2api integration or personal model providers. Contact the administrator.",
+    "gatewayNotAllowed": "The gateway is not trusted by this deployment. Ask the administrator to configure it explicitly.",
+    "upstreamUnavailable": "The sub2api response could not be read. Check connectivity, timeouts or API version compatibility and reopen the entry later.",
+    "rateLimited": "Too many sign-in attempts. Reopen the entry later.",
+    "providerUnavailable": "Provider import or model discovery failed. Check host restrictions, provider limits, existing provider status and Key validity.",
+    "twoFactorFailed": "Two-factor verification could not be started. Return to normal sign-in.",
+    "importSummary": {
+      "ready": "{count} services are ready. Choose one manually from the model list",
+      "partial": "{count} services are ready; some Keys were not imported",
+      "none": "No services are ready; the following Keys were not imported",
+      "manualSelection": "Ready services can be selected manually in the model list. Keys are never rotated or failed over automatically.",
+      "unimported": "View Keys not imported ({count})",
+      "noItemDetails": "The server did not provide item-level details. Check Key status using the counts above.",
+      "counts": {
+        "total": "Total",
+        "eligible": "Eligible",
+        "imported": "Imported",
+        "reused": "Reused",
+        "skipped": "Skipped",
+        "failed": "Failed"
+      },
+      "status": {
+        "skipped": "Skipped",
+        "failed": "Failed"
+      },
+      "reasons": {
+        "quota": "The Key is over quota or its quota is exhausted",
+        "probe": "Provider or model discovery failed",
+        "unsupported": "The group or model protocol is unsupported",
+        "two-factor": "This two-factor account only reuses existing providers. This Key was not imported and verification will not automatically import it",
+        "limit": "The personal-provider limit was reached. Adjust the admin limit or remove an unused provider",
+        "timeout": "The import time budget was exhausted. Reopen the entry from sub2api to continue",
+        "inactive": "The Key or its group is disabled",
+        "expired": "The Key has expired",
+        "key-invalid": "The Key format or quota data is invalid",
+        "group-invalid": "The Key has no valid assigned group",
+        "gateway": "The gateway is not trusted by this deployment",
+        "suspended": "The provider was suspended by an administrator and will not be restored automatically",
+        "disabled": "The provider is disabled or has no enabled models and will not be restored automatically",
+        "credential-changed": "The stored credential, URL or protocol changed. Resolve it in provider settings",
+        "duplicate": "The provider identity conflicts with an existing record; nothing was overwritten",
+        "blocked-host": "The gateway host is blocked by the deployment security policy",
+        "feature-disabled": "Personal model providers are disabled",
+        "other": "Not imported. Try again later or contact the administrator"
+      }
+    },
+    "backToLogin": "Back to normal sign-in"
+  },
   "registerInBrowser": "Register in browser"
 }

@@ -20,6 +20,7 @@ func Models() []any {
 		&models.UserAuthEvent{},
 		&models.AuthIdentityProvider{},
 		&models.UserIdentity{},
+		&models.Sub2APIIdentity{},
 		&models.UserTwoFactor{},
 		&models.TrustedDevice{},
 		&models.LLMUpstream{},

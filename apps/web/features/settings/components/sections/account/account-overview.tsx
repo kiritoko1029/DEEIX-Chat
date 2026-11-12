@@ -10,6 +10,7 @@ import type { UserDTO } from "@/shared/api/auth-types";
 import { CopyActionButton } from "@/shared/components/copy-action";
 import { SettingsSection } from "@/shared/components/settings-layout";
 import { FeatureGate } from "@/shared/capabilities";
+import { resolveSub2ApiSourceEmail } from "@/shared/auth/external-profile";
 
 function ActionRow({
   title,
@@ -91,6 +92,7 @@ export function AccountOverviewSection({
   onOpenDeleteDialog: () => void;
 }) {
   const t = useTranslations("settings.accountPage");
+  const externalEmail = viewer ? resolveSub2ApiSourceEmail(viewer) : "";
 
   return (
     <SettingsSection title={t("title")}>
@@ -180,6 +182,13 @@ export function AccountOverviewSection({
           }
         />
       </FeatureGate>
+
+      {externalEmail ? (
+        <div className="space-y-1.5">
+          <ValueRow title={t("externalProfile.emailLabel")} value={externalEmail} />
+          <p className="text-xs leading-relaxed text-muted-foreground">{t("externalProfile.emailDescription")}</p>
+        </div>
+      ) : null}
 
       <ValueRow
         title={t("publicID")}

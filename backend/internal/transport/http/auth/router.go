@@ -3,6 +3,7 @@ package auth
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/middleware"
 )
 
@@ -28,6 +29,16 @@ func (m *Module) RegisterPublicRoutes(api *gin.RouterGroup, gate middleware.Feat
 	identityProviders.POST("/auth/providers/:slug/authorize", m.Handler.StartProviderAuthBridge)
 	identityProviders.GET("/auth/providers/:slug/callback", m.Handler.ProviderCallback)
 	identityProviders.POST("/auth/providers/:slug/exchange", m.Handler.ExchangeProviderAuthBridgeGrant)
+}
+
+// RegisterSub2APIRoutes isolates account switching before its mandatory IP
+// limiter; it must not inherit the optional public-auth limiter.
+func (m *Module) RegisterSub2APIRoutes(api *gin.RouterGroup, limiter middleware.RateLimiter, cfg *config.Runtime) {
+	api.POST("/auth/sub2api/exchange",
+		m.Handler.sub2APIExchangeBoundary(cfg.Snapshot().CORSAllowOrigin),
+		middleware.Sub2APIExchangeRateLimit(limiter, cfg),
+		m.Handler.ExchangeSub2API,
+	)
 }
 
 // RegisterProtectedRoutes 注册需登录的鉴权路由。

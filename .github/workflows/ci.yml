@@ -1,14 +1,14 @@
 name: CI
 
-# Pre-merge checks for dev and main. One job per area; each runs only when
+# Pre-merge checks for dev, main and sub2api branches. One job per area; each runs only when
 # its paths changed, so a docs-only PR is cheap and a Rust-only PR does not
 # rebuild the web app. Skipped jobs satisfy required status checks.
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, main, "sub2api-*"]
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, "sub2api-*"]
   workflow_dispatch:
 
 permissions:
@@ -70,6 +70,14 @@ jobs:
             lockfiles:
               - pnpm-lock.yaml
               - apps/desktop/src-tauri/Cargo.lock
+
+  image-release-policy:
+    name: Image release policy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test registry target and tag policy
+        run: node --test scripts/image-release.test.mjs
 
   commits:
     name: Commits
@@ -156,7 +164,7 @@ jobs:
       - name: Check (lint, types, architecture, API contract)
         run: pnpm turbo run check --filter=@deeix/web --filter=./packages/*
       - name: Test
-        run: pnpm turbo run test --filter=./packages/*
+        run: pnpm turbo run test --filter=@deeix/web --filter=./packages/*
       - name: Cache Next.js build
         uses: actions/cache@v5
         with:
@@ -171,7 +179,8 @@ jobs:
   desktop:
     name: Desktop
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    # Web/Docker integration branches do not need desktop toolchains or packaging.
+    if: needs.changes.outputs.desktop == 'true' && !startsWith(github.head_ref || github.ref_name, 'sub2api-')
     runs-on: ubuntu-24.04
     defaults:
       run:

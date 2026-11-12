@@ -11,7 +11,7 @@ import { clearProviderBridgeRequest, readProviderBridgeRequest } from "@/shared/
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
 import { isRecord, readString } from "@/shared/lib/type-guards";
 import { resolveOAuthClientId } from "@/shared/platform/desktop-oauth";
-import { completeNativeSignIn } from "@/shared/platform/desktop-session";
+import { authenticateExplicitly } from "@/shared/platform/desktop-session";
 
 const PROVIDER_EMAIL_CONFLICT_ERROR_CODE = "auth.provider_email_conflict";
 const PROVIDER_EMAIL_CONFLICT_ACTION_SIGN_IN_THEN_BIND = "sign_in_then_bind";
@@ -96,7 +96,7 @@ export function useAuthProviderCallback() {
           });
         return;
       }
-      void exchangeProviderAuthBridgeGrant(provider, exchangeInput)
+      void authenticateExplicitly(() => exchangeProviderAuthBridgeGrant(provider, exchangeInput))
         .then((result) => {
           if (result.twoFactorRequired) {
             if (!writeTwoFactorChallenge(result.twoFactorChallengeToken ?? "", result.verificationMethods)) {
@@ -107,7 +107,7 @@ export function useAuthProviderCallback() {
             router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
             return;
           }
-          void completeNativeSignIn(result);
+
           router.replace(nextPath);
         })
         .catch((caught) => {

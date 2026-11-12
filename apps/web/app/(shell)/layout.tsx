@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import { ShellProviders } from "@/features/desktop";
@@ -14,6 +15,10 @@ const geistSans = Geist({
   subsets: ["latin"],
   display: "optional",
 });
+
+export const metadata: Metadata = {
+  referrer: "no-referrer",
+};
 
 export default function ShellLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

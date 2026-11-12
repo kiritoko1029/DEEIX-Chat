@@ -84,6 +84,7 @@ import (
 	userrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/user"
 	usersettingsrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/usersettings"
 	platformruntime "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/runtime"
+	sub2apiclient "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/sub2api"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/background"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/lifecycle"
 	sharedsecurity "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/security"
@@ -436,6 +437,7 @@ func NewAppWithOptions(opts Options) (*App, error) {
 	personalProviderService := apppersonalprovider.NewService(runtimeCfg, personalproviderrepo.NewRepo(db), llmClient)
 	personalProviderService.SetAuditWriter(auditService)
 	personalProviderService.SetLogger(log)
+	authService.SetSub2API(sub2apiclient.New(), userRepo, personalProviderService)
 	personalRouteResolver := apppersonalprovider.NewRouteResolver(channelService, personalProviderService)
 	channelHandler.SetPersonalModelSource(personalProviderService)
 	conversationService := conversation.NewServiceWithRuntime(conversation.Dependencies{

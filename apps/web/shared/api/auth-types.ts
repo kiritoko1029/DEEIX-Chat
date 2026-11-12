@@ -14,16 +14,26 @@ import type {
   PasswordResetStartResponse,
   PatchMeRequest,
   UpdateCurrentSessionLocationRequest,
+  ExternalProfileResponse,
+  Sub2APIImportItemResponse,
+  Sub2APIImportResponse,
 } from "@deeix/api-contract";
 
 export type UserIdentityProviderSummaryDTO = AuthUserIdentityProviderSummaryResponse;
 
-export type UserDTO = AuthUserResponse;
+export type Sub2ApiExternalProfile = ExternalProfileResponse;
+export type Sub2ApiImportItem = Sub2APIImportItemResponse;
+export type Sub2ApiImportSummary = Sub2APIImportResponse;
 
-export type LoginData = Omit<LoginResponse, "user" | "verificationMethods"> & {
+export type UserDTO = Omit<AuthUserResponse, "externalProfile"> & {
+  externalProfile?: Sub2ApiExternalProfile;
+};
+
+export type LoginData = Omit<LoginResponse, "user" | "verificationMethods" | "sub2apiImport"> & {
   user: UserDTO;
   twoFactorChallengeToken?: string;
   verificationMethods?: SecurityVerificationMethod[];
+  sub2apiImport?: Sub2ApiImportSummary;
 };
 
 export type TwoFactorStatusData = {

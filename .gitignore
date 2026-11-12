@@ -82,6 +82,9 @@ web_modules/
 .env.*.local
 .env.local
 
+# Local agent reports and session artifacts (never publish)
+.dsh/
+
 # Local application config
 /config.yaml
 /config.yml

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { RootEntry } from "@/features/shell";
 
 export default function Page() {
-  redirect("/chat");
+  return <RootEntry />;
 }

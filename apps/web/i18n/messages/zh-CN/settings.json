@@ -135,6 +135,10 @@
       "verified": "已验证",
       "unverified": "未验证"
     },
+    "externalProfile": {
+      "emailLabel": "sub2api 来源邮箱",
+      "emailDescription": "来自 sub2api 外部资料，仅供展示；不是安全验证邮箱，不能用于找回密码或邮箱绑定。"
+    },
     "actions": {
       "set": "设置",
       "update": "更新",
