@@ -21,8 +21,6 @@ jobs:
   validate:
     name: Validate release and Docker Hub configuration
     runs-on: ubuntu-24.04
-    outputs:
-      plan: ${{ steps.release.outputs.plan }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -61,6 +59,15 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+      # Keep the plan local: a Docker Hub username stored as a secret can match
+      # its public image namespace, causing GitHub to drop cross-job outputs.
+      - name: Resolve job-local release plan
+        id: release
+        env:
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: node scripts/image-release.mjs
       - name: Set up Buildx
         id: buildx
         uses: docker/setup-buildx-action@v4
@@ -112,7 +119,7 @@ jobs:
       - name: Resolve staging tags
         id: staging
         env:
-          PLAN: ${{ needs.validate.outputs.plan }}
+          PLAN: ${{ steps.release.outputs.plan }}
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
@@ -129,7 +136,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ fromJSON(needs.validate.outputs.plan).version }}
+            org.opencontainers.image.version=${{ fromJSON(steps.release.outputs.plan).version }}
           build-args: |
             GIT_COMMIT=${{ github.sha }}
             REFRESH_CATALOG_SNAPSHOTS=true
@@ -141,8 +148,19 @@ jobs:
     needs: [validate, build]
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Resolve job-local release plan
+        id: release
+        env:
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: node scripts/image-release.mjs
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
@@ -159,7 +177,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Create and verify manifest lists
         env:
-          PLAN: ${{ needs.validate.outputs.plan }}
+          PLAN: ${{ steps.release.outputs.plan }}
         run: |
           set -euo pipefail
           staging=$(jq -r .staging <<< "$PLAN")
