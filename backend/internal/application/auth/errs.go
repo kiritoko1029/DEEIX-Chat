@@ -46,13 +46,14 @@ func newAccountLockedError(lockedUntil *time.Time, now time.Time) error {
 const ProviderEmailConflictActionSignInThenBind = "sign_in_then_bind"
 
 var (
-	ErrSub2APIImportFailed   = apperr.New("auth.sub2api_import_failed", "no sub2api provider could be imported or reused; inspect import results")
-	ErrSub2APIDisabled       = apperr.New("auth.sub2api_disabled", "sub2api login is not enabled")
-	ErrSub2APIInvalidRequest = apperr.New("auth.sub2api_invalid_request", "invalid sub2api login request")
-	ErrSub2APIRejected       = apperr.New("auth.sub2api_rejected", "sub2api identity could not be verified")
-	ErrSub2APIUnavailable    = apperr.New("auth.sub2api_unavailable", "sub2api login is temporarily unavailable")
-	ErrSub2APINoKey          = apperr.New("auth.sub2api_no_usable_key", "no supported active sub2api API key is available")
-	ErrSub2APIGateway        = apperr.New("auth.sub2api_gateway_not_allowed", "sub2api gateway requires an explicit deployment configuration")
+	ErrSub2APIProtocolRequired = apperr.New("auth.sub2api_protocol_required", "select a protocol for unrecognized sub2api platforms")
+	ErrSub2APIImportFailed     = apperr.New("auth.sub2api_import_failed", "no sub2api provider could be imported or reused; inspect import results")
+	ErrSub2APIDisabled         = apperr.New("auth.sub2api_disabled", "sub2api login is not enabled")
+	ErrSub2APIInvalidRequest   = apperr.New("auth.sub2api_invalid_request", "invalid sub2api login request")
+	ErrSub2APIRejected         = apperr.New("auth.sub2api_rejected", "sub2api identity could not be verified")
+	ErrSub2APIUnavailable      = apperr.New("auth.sub2api_unavailable", "sub2api login is temporarily unavailable")
+	ErrSub2APINoKey            = apperr.New("auth.sub2api_no_usable_key", "no supported active sub2api API key is available")
+	ErrSub2APIGateway          = apperr.New("auth.sub2api_gateway_not_allowed", "sub2api gateway requires an explicit deployment configuration")
 	// ErrInvalidCredentials 用户名或密码错误。
 	ErrInvalidCredentials = apperr.New("auth.invalid_credentials", "invalid username or password")
 	// ErrAccountLocked 账户已被锁定。

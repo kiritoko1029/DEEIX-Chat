@@ -16,3 +16,9 @@ type Sub2APIProfileRepository interface {
 	GetSub2APIProfile(context.Context, uint) (*domainuser.ExternalProfile, error)
 	SyncSub2APIProfile(context.Context, uint, string, int64, domainuser.ExternalProfile) error
 }
+
+// Sub2APIIdentityLookup reads an existing binding without provisioning an account.
+// Missing bindings return ErrNotFound; tombstones and collisions must fail closed.
+type Sub2APIIdentityLookup interface {
+	LookupSub2APIUser(context.Context, string, int64) (*domainuser.User, error)
+}

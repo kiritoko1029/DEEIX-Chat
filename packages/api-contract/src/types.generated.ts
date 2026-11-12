@@ -4273,6 +4273,8 @@ export interface StorageQuotaResponse {
 }
 
 export interface Sub2APIExchangeRequest {
+  protocolSelections?: Sub2APIProtocolChoiceRequest[];
+  skipKeyIDs?: number[];
   /**
    * @minLength 1
    * @maxLength 16384
@@ -4302,6 +4304,18 @@ export interface Sub2APIImportResponse {
   reused: number;
   skipped: number;
   total: number;
+}
+
+export interface Sub2APIProtocolChoiceRequest {
+  /**
+   * @min 1
+   * @max 9007199254740991
+   */
+  keyID: number;
+  protocol:
+    | "openai_responses"
+    | "anthropic_messages"
+    | "openai_chat_completions";
 }
 
 export interface SubmitFileEmbeddingsRequest {

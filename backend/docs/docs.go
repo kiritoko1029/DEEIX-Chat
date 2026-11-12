@@ -10458,6 +10458,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/AuthErrorDoc"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
@@ -31720,6 +31726,18 @@ const docTemplate = `{
                 "userID"
             ],
             "properties": {
+                "protocolSelections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Sub2APIProtocolChoiceRequest"
+                    }
+                },
+                "skipKeyIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "token": {
                     "type": "string",
                     "maxLength": 16384,
@@ -31802,6 +31820,28 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "Sub2APIProtocolChoiceRequest": {
+            "type": "object",
+            "required": [
+                "keyID",
+                "protocol"
+            ],
+            "properties": {
+                "keyID": {
+                    "type": "integer",
+                    "maximum": 9007199254740991,
+                    "minimum": 1
+                },
+                "protocol": {
+                    "type": "string",
+                    "enum": [
+                        "openai_responses",
+                        "anthropic_messages",
+                        "openai_chat_completions"
+                    ]
                 }
             }
         },
@@ -35540,7 +35580,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "2026.11.12",
+	Version:          "2026.11.12-fix.1",
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

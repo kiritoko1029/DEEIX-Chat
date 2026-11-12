@@ -16,8 +16,10 @@ import (
 )
 
 type Sub2APIExchangeRequest struct {
-	UserID int64  `json:"userID" binding:"required" minimum:"1" maximum:"9007199254740991"`
-	Token  string `json:"token" binding:"required" minLength:"1" maxLength:"16384"`
+	ProtocolSelections []Sub2APIProtocolChoiceRequest `json:"protocolSelections,omitempty" maxItems:"2000"`
+	SkipKeyIDs         []int64                        `json:"skipKeyIDs,omitempty" maxItems:"2000"`
+	UserID             int64                          `json:"userID" binding:"required" minimum:"1" maximum:"9007199254740991"`
+	Token              string                         `json:"token" binding:"required" minLength:"1" maxLength:"16384"`
 }
 
 // ExchangeSub2API godoc
@@ -32,6 +34,7 @@ type Sub2APIExchangeRequest struct {
 // @Failure 401 {object} ErrorDoc
 // @Failure 403 {object} ErrorDoc
 // @Failure 404 {object} ErrorDoc
+// @Failure 409 {object} ErrorDoc
 // @Failure 413 {object} ErrorDoc
 // @Failure 415 {object} ErrorDoc
 // @Failure 423 {object} ErrorDoc
@@ -46,7 +49,7 @@ func (h *Handler) ExchangeSub2API(c *gin.Context) {
 		response.ErrorFrom(c, http.StatusNotFound, appauth.ErrSub2APIDisabled)
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 20<<10)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256<<10)
 	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
 	var req Sub2APIExchangeRequest
@@ -70,8 +73,16 @@ func (h *Handler) ExchangeSub2API(c *gin.Context) {
 		return
 	}
 	auditCtx := middleware.ResolveSessionAuditContext(c)
-	result, err := h.service.ExchangeSub2API(c.Request.Context(), req.UserID, req.Token, middleware.MustRequestID(c), auditCtx)
+	result, err := h.service.ExchangeSub2API(c.Request.Context(), req.UserID, req.Token, middleware.MustRequestID(c), auditCtx, req.options())
 	if err != nil {
+		var required *appauth.Sub2APIProtocolRequiredError
+		if errors.As(err, &required) {
+			description := response.Describe(http.StatusConflict, err)
+			response.RecordError(c, err)
+			response.RecordErrorCode(c, description.Code)
+			c.JSON(http.StatusConflict, response.Envelope{ErrorMsg: description.Message, ErrorCode: description.Code, Details: map[string]any{"protocolSelection": toSub2APIProtocolSelectionResponse(required.Selection)}, RequestID: middleware.MustRequestID(c)})
+			return
+		}
 		var importErr *appauth.Sub2APIImportError
 		if errors.As(err, &importErr) && importErr != nil {
 			description := response.Describe(http.StatusForbidden, err)

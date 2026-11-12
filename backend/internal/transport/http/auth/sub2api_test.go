@@ -86,7 +86,7 @@ func TestSub2APIHTTPRejectedDetailsAreOnlySafeConstants(t *testing.T) {
 type exchangeModels struct{}
 
 func (exchangeModels) ListModels(_ context.Context, route llm.RouteConfig) ([]llm.ModelItem, error) {
-	if !route.UntrustedEndpoint || (route.BaseURL != "https://sub.example.com/v1" && route.BaseURL != "https://sub.example.com/v1beta") || (route.Protocol != "openai_responses" && route.Protocol != "anthropic_messages" && route.Protocol != "google_generate_content") {
+	if !route.UntrustedEndpoint || (route.BaseURL != "https://sub.example.com/v1" && route.BaseURL != "https://sub.example.com/v1beta") || (route.Protocol != "openai_responses" && route.Protocol != "anthropic_messages" && route.Protocol != "google_generate_content" && route.Protocol != "openai_chat_completions") {
 		return nil, fmt.Errorf("invalid test route")
 	}
 	if strings.Contains(route.APIKey, "synthetic-probe-failure") {
@@ -285,7 +285,7 @@ func TestSub2APIHTTPRejectsDisabledMalformedAndMismatched(t *testing.T) {
 			t.Fatalf("%s: %d", body, r.Code)
 		}
 	}
-	if r := exchangeRequest(router, `{"userID":7,"token":"`+strings.Repeat("x", 30<<10)+`"}`); r.Code != 413 {
+	if r := exchangeRequest(router, `{"userID":7,"token":"`+strings.Repeat("x", 257<<10)+`"}`); r.Code != 413 {
 		t.Fatal(r.Code)
 	}
 	remote.id = 8

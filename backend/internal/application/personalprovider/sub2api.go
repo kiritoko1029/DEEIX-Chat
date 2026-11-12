@@ -50,8 +50,7 @@ func (s *Service) SyncSub2API(ctx context.Context, userID uint, instance string,
 	if err != nil {
 		return Sub2APIImportResult{}, err
 	}
-	sum := sha256.Sum256([]byte("sub2api\x00" + instance + "\x00" + strconv.FormatUint(uint64(userID), 10) + "\x00" + strconv.FormatInt(keyID, 10)))
-	publicID := hex.EncodeToString(sum[:16])
+	publicID := sub2APIProviderID(userID, instance, keyID)
 	reuse := func() (Sub2APIImportResult, error) {
 		current, err := s.repo.GetByOwner(ctx, userID, publicID)
 		if err != nil {
@@ -113,4 +112,22 @@ func (s *Service) createLimited(ctx context.Context, item *domain.Provider, limi
 		return created, err
 	}
 	return s.repo.Create(ctx, item)
+}
+
+func sub2APIProviderID(userID uint, instance string, keyID int64) string {
+	sum := sha256.Sum256([]byte("sub2api\x00" + instance + "\x00" + strconv.FormatUint(uint64(userID), 10) + "\x00" + strconv.FormatInt(keyID, 10)))
+	return hex.EncodeToString(sum[:16])
+}
+
+// LookupSub2APIProtocol reads only the immutable imported provider identity.
+// The caller must first resolve owner from the verified instance/remote subject.
+func (s *Service) LookupSub2APIProtocol(ctx context.Context, owner uint, instance string, keyID int64) (string, error) {
+	current, err := s.repo.GetByOwner(ctx, owner, sub2APIProviderID(owner, instance, keyID))
+	if err != nil {
+		return "", err
+	}
+	if current.Source != "sub2api" {
+		return "", repository.ErrConflict
+	}
+	return current.Protocol, nil
 }

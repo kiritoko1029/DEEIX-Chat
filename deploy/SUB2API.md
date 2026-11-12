@@ -63,7 +63,7 @@ DEEIX_CHAT_IMAGE=deeix-chat:sub2api docker compose -f docker-compose.sqlite.yml 
 
 不要直接继续使用未经本次源码构建的 `ghcr.io/deeix-ai/deeix-chat:latest`。升级前备份数据库和加密密钥。
 
-也可使用本分支的日期版本镜像，例如将 `DEEIX_CHAT_IMAGE` 设为 `195658/deeix-chat:2026.11.12`。首次拉取前确认 Image 工作流已经完成。自动构建、凭据配置和多架构标签规则见 [发布说明](<RELEASING.md>)。
+也可直接使用本分支镜像。需要 DeepSeek 和协议选择修复时，将 `DEEIX_CHAT_IMAGE` 设为 `195658/deeix-chat:2026.11.12-fix.1`；本修订版不覆盖原版 `2026.11.12` 或 `latest`。首次拉取前确认 Image 工作流已经完成。自动构建、凭据配置和多架构标签规则见 [发布说明](<RELEASING.md>)。
 
 ## 3. 使用链接
 
@@ -99,11 +99,28 @@ https://chat.example.com/#user_id=1&token=ACCESS_TOKEN
 
 支持的分组平台与协议：
 
-- `openai` → OpenAI Responses；
+- `openai`、`deepseek` → OpenAI Responses；
 - `anthropic` → Anthropic Messages；
 - `gemini` → Google Generate Content。
 
-其他平台、未分组、停用、过期或额度耗尽的 Key 会明确标为跳过，不自动猜测协议。新 Key 会独立探测模型，首次导入每个服务最多启用 200 个发现的模型。服务自动命名为 `Key 名称 · 分组名称 · #Key ID`（最多 64 个字符且保留 ID）。在模型选择器中按所属 Key/分组手动选择；不会自动轮询、故障转移或切换你的已选模型。
+DeepSeek 映射适用于 sub2api 对外提供的 Responses 网关，不是将 Key 直接发送给 DeepSeek 原厂。仍需该 sub2api 分组实际支持此入口。`v2026.11.12` 原版没有 DeepSeek 导入映射，修复版为 `v2026.11.12-fix.1`。
+
+对于状态、归属、有效期和额度正常但**平台协议无法确定**的 Key，先显示协议确认界面，不再直接以“不支持平台”跳过。未分组、停用、过期或额度耗尽的 Key 仍明确跳过，协议选择不能绕过这些限制。
+
+新 Key 会独立读取模型列表，首次导入每个服务最多启用 200 个发现的模型。服务自动命名为 `Key 名称 · 分组名称 · #Key ID`（最多 64 个字符且保留 ID）。在模型选择器中按所属 Key/分组手动选择；不会自动轮询、故障转移或切换你的已选模型。
+
+### 协议不明确时由用户确认
+
+可选协议为：
+
+- OpenAI Responses：`/v1/responses`；
+- Anthropic Messages：`/v1/messages`；
+- OpenAI Chat Completions：`/v1/chat/completions`；
+- 本次跳过：不导入该 Key，也不删除已有服务。
+
+选择界面只展示 Key 名称、分组和平台，不显示明文 Key。提交时只增加 Key ID 与协议选择，后端仍重新验证用户 token、每个 Key 的归属、目标地址与权限。首次协议确认阶段不创建本地账号/服务、不签发会话。成功导入后通过所属服务的既有协议记录记忆选择，不把远端登录 JWT 持久化。
+
+**模型列表可读取不代表生成接口一定兼容。** 本流程不会为了探测而自动发送收费聊天请求；请选择 sub2api 分组实际提供的入口。错误选择不会使后端放宽鉴权或自动尝试其他协议。已有服务的协议和手工模型设置不会通过新链接被静默覆盖。
 
 一个 Key 探测失败不阻断其他 Key。接入结果提供“新导入／复用／跳过／失败”计数与逐项原因；至少一个服务就绪时可继续登录。没有兼容 Key 或所有导入均失败时，返回明确错误及摘要，不伪称同步成功。IP ACL、窗口额度和实际调用权限仍由 sub2api 执行，不自动创建远端 Key。
 
@@ -195,9 +212,9 @@ go test ./...
 go vet ./...
 ```
 
-前端有 33 项 Node 测试，包含外部邮箱与本地安全邮箱隔离、不同 Key 同名模型引用、同步结果分类和 2FA 摘要交接；后端涵盖身份与 Key 归属、资料迁移、并发创建、配额、加密、2FA、Cookie、Origin、强制限流和出站限制。数据库集成测试使用临时 SQLite，尚未做独立 PostgreSQL 实例联调。
+前端有 42 项 Node 测试，包含外部邮箱与本地安全邮箱隔离、不同 Key 同名模型引用、同步结果分类、协议选择解析、重复 409 决定合并、凭据到期及 2FA 摘要交接；后端涵盖身份与 Key 归属、资料迁移、并发创建、配额、加密、2FA、Cookie、Origin、强制限流和出站限制。数据库集成测试使用临时 SQLite，尚未做独立 PostgreSQL 实例联调。
 
-[浏览器回归脚本](<../apps/web/scripts/test-sub2api-browser.cjs>) 包含 18 个模拟 API 场景，覆盖普通入口、失败/网络中断后的旧账号隔离、2FA 返回 `/`、同文档新链接、旧异步结果、原生凭据调用桩，以及昵称/邮箱、部分成功、全部失败和 2FA 后的摘要展示。当前 18 项生产产物测试通过；原有 15 项认证场景也曾在 React StrictMode 开发模式通过。脚本需要单独提供已安装的 Playwright 模块和 Chrome，不会自动安装或访问真实 sub2api：
+[浏览器回归脚本](<../apps/web/scripts/test-sub2api-browser.cjs>) 包含 30 个模拟 API 场景，覆盖普通入口、旧账号隔离、2FA 返回 `/`、新链接、原生凭据调用桩、资料/摘要展示，以及协议确认、混合跳过、重复 409、双击去重、取消和到期。当前 30 项生产产物测试通过；原有 15 项认证场景也曾在 React StrictMode 开发模式通过（不表示本次新增场景也在开发模式重跑）。脚本需要单独提供已安装的 Playwright 模块和 Chrome，不会自动安装或访问真实 sub2api：
 
 ```bash
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright-core \

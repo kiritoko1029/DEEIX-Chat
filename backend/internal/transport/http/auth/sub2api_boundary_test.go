@@ -50,7 +50,7 @@ func TestSub2APIExchangeClearsOldCookieOnEveryTrustedFailure(t *testing.T) {
 		{"disabled", false, exchangeBody, 7, 404},
 		{"bad JSON", true, `{`, 7, 400},
 		{"bad ID", true, `{"userID":0,"token":"x"}`, 7, 400},
-		{"oversize", true, `{"userID":7,"token":"` + strings.Repeat("x", 30<<10) + `"}`, 7, 413},
+		{"oversize", true, `{"userID":7,"token":"` + strings.Repeat("x", 257<<10) + `"}`, 7, 413},
 		{"mismatch", true, exchangeBody, 8, 401},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

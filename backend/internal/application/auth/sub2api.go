@@ -36,7 +36,7 @@ func (s *Service) Sub2APIEnabled() bool {
 
 // ExchangeSub2API uses the remote credential only within this request. No JWT or
 // upstream response body is retained. Display-only profile fields are stored separately.
-func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, requestID string, auditCtx requestmeta.SessionAuditContext) (result *LoginResult, err error) {
+func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, requestID string, auditCtx requestmeta.SessionAuditContext, options ...Sub2APIExchangeOptions) (result *LoginResult, err error) {
 	if !s.Sub2APIEnabled() {
 		return nil, ErrSub2APIDisabled
 	}
@@ -47,6 +47,10 @@ func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, r
 		if char < 0x21 || char > 0x7e {
 			return nil, ErrSub2APIInvalidRequest
 		}
+	}
+	selection, err := sub2APIOptions(options)
+	if err != nil {
+		return nil, err
 	}
 	authEventCtx := ctx
 	defer func() {
@@ -81,7 +85,16 @@ func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, r
 	if snapshot.User.Status != "active" {
 		return nil, sub2APIRejection(port.StageIdentity, port.ReasonUserInactive)
 	}
-	summary, candidates, err := prepareSub2APIImport(snapshot.Keys, userID, instance, cfg.Sub2APIAPIBaseURL, snapshot.APIBaseURL)
+	if err := validateSub2APIKeys(snapshot.Keys, userID); err != nil {
+		return nil, err
+	}
+	if err := selection.validateReferences(snapshot.Keys); err != nil {
+		return nil, err
+	}
+	if err := s.rememberSub2APIProtocols(ctx, instance, userID, snapshot.Keys, &selection); err != nil {
+		return nil, err
+	}
+	summary, candidates, err := prepareSub2APIImport(snapshot.Keys, userID, instance, cfg.Sub2APIAPIBaseURL, snapshot.APIBaseURL, selection)
 	if err != nil {
 		return nil, err
 	}

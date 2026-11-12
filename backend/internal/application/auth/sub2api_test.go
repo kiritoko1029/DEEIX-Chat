@@ -168,7 +168,7 @@ func TestSub2APIExchangeFailsBeforeProvisioningOnInvalidRemoteIdentity(t *testin
 		{"inactive", func(r *fakeSub2API) { r.snapshot.User.Status = "disabled" }, ErrSub2APIRejected},
 		{"key mismatch", func(r *fakeSub2API) { r.snapshot.Keys[0].UserID = 8 }, ErrSub2APIRejected},
 		{"no keys", func(r *fakeSub2API) { r.snapshot.Keys = nil }, ErrSub2APINoKey},
-		{"unsupported", func(r *fakeSub2API) { r.snapshot.Keys[0].Group.Platform = "antigravity" }, ErrSub2APINoKey},
+		{"unsupported", func(r *fakeSub2API) { r.snapshot.Keys[0].Group.Platform = "antigravity" }, ErrSub2APIProtocolRequired},
 		{"unsafe gateway", func(r *fakeSub2API) { r.snapshot.APIBaseURL = "https://other.example.com" }, ErrSub2APIGateway},
 		{"redacted failure", func(r *fakeSub2API) { r.err = errors.New("fake-login-token upstream details") }, ErrSub2APIUnavailable},
 	} {
@@ -222,11 +222,11 @@ func TestSub2APIKeyPreparationIsStableAndFiltersExpiredQuotaAndUnsupported(t *te
 	group := *valid.Group
 	group.Platform = "unsupported"
 	unsupported.Group = &group
-	summary, candidates, err := prepareSub2APIImport([]port.Key{unsupported, valid, expired, exhausted}, 7, "https://sub.example.com", "", "")
+	summary, candidates, err := prepareSub2APIImport([]port.Key{unsupported, valid, expired, exhausted}, 7, "https://sub.example.com", "", "", sub2APISelection{skips: map[int64]bool{4: true}})
 	if err != nil || len(candidates) != 1 || candidates[0].key.ID != 2 || candidates[0].input.Protocol != "openai_responses" {
 		t.Fatalf("unexpected candidates or error: %v", err)
 	}
-	if summary.Skipped != 3 || summary.Items[0].Reason != "expired" || summary.Items[2].Reason != "quota_exhausted" || summary.Items[3].Reason != "unsupported_platform" {
+	if summary.Skipped != 3 || summary.Items[0].Reason != "expired" || summary.Items[2].Reason != "quota_exhausted" || summary.Items[3].Reason != "user_skipped" {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
 }

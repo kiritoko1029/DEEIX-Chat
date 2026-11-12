@@ -21,6 +21,18 @@ const server = http.createServer((request, response) => {
 const user = { id: 2, publicID: 'fake-user-2', username: 'fake-new-user', displayName: 'Fake new user', role: 'user', status: 'active', timezone: 'UTC', locale: 'en-US', phone: '', email: '', avatarURL: '', profilePreferences: '{}', appearancePreferences: '{}', identityProviders: [], initialSecurityRequired: false, initialUsernameRequired: false, onboardingCompletedAt: '2026-01-01T00:00:00Z' };
 const session = (name = 'NEW') => ({ accessToken: `FAKE_${name}_ACCESS`, sessionID: `FAKE_${name}_SESSION`, user });
 const challenge = { twoFactorRequired: true, twoFactorChallengeToken: 'FAKE_CHALLENGE', verificationMethods: ['two_factor'] };
+const protocolList = ['openai_responses', 'anthropic_messages', 'openai_chat_completions'];
+const protocolItem = (keyID, name = `Unknown Key ${keyID}`, platform = 'DeepSeek') => ({ keyID, name, groupName: 'Custom group', platform });
+const protocolRequired = (route, items) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({
+  errorCode: 'auth.sub2api_protocol_required', errorMsg: 'FAKE_RAW_PROTOCOL_ERROR', details: { protocolSelection: { items, protocols: protocolList } },
+}) });
+const protocolTrigger = (page, keyID) => page.getByRole('combobox', { name: new RegExp(`#${keyID}`) });
+const chooseProtocol = async (page, keyID, label) => {
+  await protocolTrigger(page, keyID).click();
+  await page.getByRole('option', { name: new RegExp(label) }).click();
+};
+const confirmProtocols = page => page.locator('[data-sub2api-protocol-confirm]');
+const protocolPanel = async page => page.getByText(/Choose an API protocol|选择接口协议/, { exact: true }).waitFor();
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -167,6 +179,209 @@ async function main() {
       await page.goto(`${origin}/#user_id=1&token=FAKE_PANEL_JWT`); await failure(page);
       await page.goto(`${origin}/chat`); await page.waitForURL('**/login?**');
       assert.equal(refreshes().length, 0); assert.equal(exchanges().length, 1);
+    });
+    await scenario('protocol 409 requires an explicit Responses choice before sign-in', {
+      exchange: (route, call) => call.body.protocolSelections ? fulfill(route, session()) : protocolRequired(route, [protocolItem(71, 'DeepSeek Key')]),
+    }, async ({ page, origin, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`);
+      await protocolPanel(page);
+      assert.equal(await confirmProtocols(page).isDisabled(), true);
+      await page.getByText('DeepSeek Key', { exact: false }).waitFor();
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      assert.equal(await confirmProtocols(page).isDisabled(), false);
+      await confirmProtocols(page).click();
+      await page.waitForURL('**/chat'); await checkClean();
+      assert.equal(exchanges().length, 2);
+      assert.deepEqual(Object.keys(exchanges()[0].body).sort(), ['token', 'userID']);
+      assert.deepEqual(exchanges()[1].body.protocolSelections, [{ keyID: 71, protocol: 'openai_responses' }]);
+      assert.deepEqual(exchanges()[1].body.skipKeyIDs, []);
+      assert(!(await page.locator('body').innerText()).includes('FAKE_RAW_PROTOCOL_ERROR'));
+    });
+    await scenario('mixed protocol and user skip produce a precise partial summary', {
+      exchange: (route, call) => call.body.protocolSelections ? fulfill(route, { ...session(), sub2apiImport: {
+        total: 2, eligible: 1, imported: 1, reused: 0, skipped: 1, failed: 0,
+        items: [
+          { keyID: 71, name: 'DeepSeek Key', groupName: 'Custom group', status: 'imported' },
+          { keyID: 72, name: 'Skip Key', groupName: 'Custom group', status: 'skipped', reason: 'user_skipped' },
+        ],
+      } }) : protocolRequired(route, [protocolItem(71, 'DeepSeek Key'), protocolItem(72, 'Skip Key')]),
+    }, async ({ page, origin, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Chat Completions.*\\/v1/chat/completions');
+      await chooseProtocol(page, 72, 'Skip for this sign-in|本次跳过');
+      await confirmProtocols(page).click(); await page.waitForURL('**/chat'); await checkClean();
+      assert.deepEqual(exchanges()[1].body.protocolSelections, [{ keyID: 71, protocol: 'openai_chat_completions' }]);
+      assert.deepEqual(exchanges()[1].body.skipKeyIDs, [72]);
+      const summary = page.locator('[data-sub2api-import-summary]');
+      await summary.waitFor(); await summary.locator('details summary').click();
+      assert.match(await summary.innerText(), /Skipped by you|本次由你主动跳过/);
+      assert.match(await summary.innerText(), /Skip Key/);
+    });
+    await scenario('double submission and a repeated 409 keep one in-flight continuation', {
+      exchange: async (route, _call, calls) => {
+        const count = calls.filter(item => item.endpoint.endsWith('/sub2api/exchange')).length;
+        if (count === 1) return protocolRequired(route, [protocolItem(71)]);
+        if (count === 2) { await delay(250); return protocolRequired(route, [protocolItem(72, 'Newly Pending Key')]); }
+        return fulfill(route, session());
+      },
+    }, async ({ page, origin, exchanges }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await page.getByRole('button', { name: /Apply OpenAI Responses|应用 OpenAI Responses/ }).click();
+      await confirmProtocols(page).evaluate(button => {
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await protocolTrigger(page, 72).waitFor();
+      assert.equal(exchanges().length, 2);
+      assert.deepEqual(exchanges()[1].body.protocolSelections, [{ keyID: 71, protocol: 'openai_responses' }]);
+      await chooseProtocol(page, 72, 'Anthropic Messages.*\\/v1/messages');
+      await confirmProtocols(page).click(); await page.waitForURL('**/chat');
+      assert.equal(exchanges().length, 3);
+      assert.deepEqual(exchanges()[2].body.protocolSelections, [
+        { keyID: 71, protocol: 'openai_responses' },
+        { keyID: 72, protocol: 'anthropic_messages' },
+      ]);
+    });
+    await scenario('protocol selection preserves the 2FA challenge and pending summary handoff', {
+      next: '/',
+      exchange: (route, call) => call.body.protocolSelections ? fulfill(route, { ...challenge, sub2apiImport: {
+        total: 1, eligible: 1, imported: 0, reused: 0, skipped: 1, failed: 0,
+        items: [{ keyID: 71, name: '2FA Pending Key', groupName: 'Custom group', status: 'skipped', reason: 'two_factor_required' }],
+      } }) : protocolRequired(route, [protocolItem(71, '2FA Pending Key')]),
+    }, async ({ page, origin, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'Anthropic Messages.*\\/v1/messages');
+      await confirmProtocols(page).click(); await page.waitForURL('**/login'); await checkClean();
+      await page.locator('input[name=otp]').waitFor();
+      assert.equal(await page.locator('[data-sub2api-import-summary]').count(), 0);
+      await page.locator('input[name=otp]').fill('123456');
+      await page.locator('button[type=submit]').click(); await page.waitForURL('**/chat');
+      assert.equal(exchanges().length, 2);
+      const summary = page.locator('[data-sub2api-import-summary]');
+      await summary.waitFor(); await summary.locator('details summary').click();
+      assert.match(await summary.innerText(), /2FA Pending Key/);
+    });
+    await scenario('a new link synchronously blocks the previous protocol selection callback', {
+      exchange: (route, call) => {
+        if (call.body.userID === 2) return fulfill(route, session('NEW'));
+        if (call.body.protocolSelections) return fulfill(route, session('STALE'));
+        return protocolRequired(route, [protocolItem(71)]);
+      },
+    }, async ({ page, origin, calls, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=1&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      await page.evaluate(() => {
+        history.pushState(null, '', '/#user_id=2&token=FAKE_SECOND_PANEL_JWT');
+        document.querySelector('[data-sub2api-protocol-confirm]').click();
+      });
+      await page.waitForURL('**/chat'); await checkClean();
+      assert.equal(exchanges().length, 2);
+      assert.deepEqual(exchanges().map(call => call.body.userID), [1, 2]);
+      assert.equal(exchanges().some(call => call.body.protocolSelections), false);
+      assert(!calls.some(call => call.authorization === 'Bearer FAKE_STALE_ACCESS'));
+    });
+    await scenario('a superseded in-flight protocol continuation cannot commit a stale session', {
+      exchange: async (route, call) => {
+        if (call.body.userID === 2) return fulfill(route, session('NEW'));
+        if (call.body.protocolSelections) { await delay(350); return fulfill(route, session('STALE')); }
+        return protocolRequired(route, [protocolItem(71)]);
+      },
+    }, async ({ page, origin, calls, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=1&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      const continued = page.waitForRequest(request => request.url().endsWith('/api/v1/auth/sub2api/exchange') && (request.postData() || '').includes('protocolSelections'));
+      await confirmProtocols(page).click(); await continued;
+      await page.goto(`${origin}/#user_id=2&token=FAKE_SECOND_PANEL_JWT`);
+      await page.waitForURL('**/chat'); await checkClean();
+      assert.equal(exchanges().length, 3);
+      assert.deepEqual(exchanges().map(call => call.body.userID), [1, 1, 2]);
+      assert(!calls.some(call => call.authorization === 'Bearer FAKE_STALE_ACCESS'));
+    });
+    await scenario('cancelling protocol selection returns to isolated normal login without retrying', {
+      exchange: route => protocolRequired(route, [protocolItem(71)]),
+    }, async ({ page, origin, calls, exchanges, refreshes, checkClean }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await page.getByRole('button', { name: /Back to normal sign-in|返回普通登录/ }).click();
+      await page.waitForURL('**/login'); await checkClean();
+      assert.equal(exchanges().length, 1); assert.equal(refreshes().length, 0);
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), barrierKey), 'blocked');
+      await normalLogin(page);
+      assert(!calls.some(call => call.authorization === 'Bearer FAKE_OLD_ACCESS'));
+      assert.equal(exchanges().length, 1);
+    });
+    await scenario('a rejected continuation is terminal and never renders upstream text', {
+      exchange: (route, call) => call.body.protocolSelections ? route.fulfill({
+        status: 401, contentType: 'application/json', body: JSON.stringify({ errorCode: 'auth.sub2api_rejected', errorMsg: 'FAKE_EXPIRED_RAW_SECRET', details: { stage: 'token' } }),
+      }) : protocolRequired(route, [protocolItem(71)]),
+    }, async ({ page, origin, exchanges, checkClean }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      await confirmProtocols(page).click(); await failure(page); await checkClean();
+      assert.equal(exchanges().length, 2);
+      assert(!(await page.locator('body').innerText()).includes('FAKE_EXPIRED_RAW_SECRET'));
+      assert.match(await page.locator('body').innerText(), /did not accept the login credential|未接受登录凭据/);
+    });
+    await scenario('an all-failed summary remains available after protocol selection', {
+      exchange: (route, call) => call.body.protocolSelections ? route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({
+        errorCode: 'auth.sub2api_import_failed', errorMsg: 'FAKE_RAW_PROTOCOL_ERROR', details: { sub2apiImport: {
+          total: 1, eligible: 1, imported: 0, reused: 0, skipped: 0, failed: 1,
+          items: [{ keyID: 71, name: 'Failed DeepSeek Key', groupName: 'Custom group', status: 'failed', reason: 'quota_exhausted' }],
+        } },
+      }) }) : protocolRequired(route, [protocolItem(71, 'Failed DeepSeek Key')]),
+    }, async ({ page, origin }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      await confirmProtocols(page).click(); await failure(page);
+      const summary = page.locator('[data-sub2api-import-summary]');
+      await summary.locator('details summary').click();
+      assert.match(await summary.innerText(), /Failed DeepSeek Key/);
+      assert(!(await page.locator('body').innerText()).includes('FAKE_RAW_PROTOCOL_ERROR'));
+    });
+    await scenario('protocol selection expires after five minutes without another exchange', {
+      exchange: route => protocolRequired(route, [protocolItem(71)]),
+    }, async ({ page, origin, exchanges, refreshes, checkClean }) => {
+      await page.clock.install();
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await page.clock.fastForward(300001);
+      await failure(page); await checkClean();
+      assert.match(await page.locator('body').innerText(), /expired|过期/);
+      assert.equal(exchanges().length, 1); assert.equal(refreshes().length, 0);
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), barrierKey), 'blocked');
+    });
+    await scenario('leaving protocol continuation during native store cannot publish a cancelled session', {
+      native: { storeDelay: 800 },
+      exchange: (route, call) => call.body.protocolSelections
+        ? fulfill(route, { ...session('CANCELLED'), refreshToken: 'FAKE_CANCELLED_REFRESH' })
+        : protocolRequired(route, [protocolItem(71)]),
+    }, async ({ page, origin, calls }) => {
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      await confirmProtocols(page).click();
+      await page.waitForFunction(() => window.__fakeShellCalls.includes('store_session'));
+      await page.evaluate(() => history.pushState(null, '', '/login'));
+      await page.waitForFunction(() => window.__fakeShellCalls.filter(command => command === 'clear_session').length >= 2, null, { timeout: 5000 });
+      assert.equal(await page.evaluate(() => window.__fakeKeychain), '');
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), barrierKey), 'blocked');
+      assert(!calls.some(call => call.authorization === 'Bearer FAKE_CANCELLED_ACCESS'));
+    });
+    await scenario('protocol expiry during native store invalidates its authentication generation', {
+      native: { storeDelay: 600000 },
+      exchange: (route, call) => call.body.protocolSelections
+        ? fulfill(route, { ...session('EXPIRED'), refreshToken: 'FAKE_EXPIRED_REFRESH' })
+        : protocolRequired(route, [protocolItem(71)]),
+    }, async ({ page, origin, calls }) => {
+      await page.clock.install();
+      await page.goto(`${origin}/#user_id=2&token=FAKE_PANEL_JWT`); await protocolPanel(page);
+      await chooseProtocol(page, 71, 'OpenAI Responses.*\\/v1/responses');
+      await confirmProtocols(page).click();
+      await page.waitForFunction(() => window.__fakeShellCalls.includes('store_session'));
+      await page.clock.fastForward(300001);
+      await page.clock.fastForward(300001);
+      await page.waitForFunction(() => window.__fakeShellCalls.filter(command => command === 'clear_session').length >= 2, null, { timeout: 5000 });
+      await failure(page);
+      assert.equal(await page.evaluate(() => window.__fakeKeychain), '');
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), barrierKey), 'blocked');
+      assert(!calls.some(call => call.authorization === 'Bearer FAKE_EXPIRED_ACCESS'));
     });
     await scenario('same-document new fragment is cleaned and starts one new attempt', { exchange: (route, call) => call.body.userID === 2 ? fulfill(route, session()) : route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }) }, async ({ page, origin, exchanges, checkClean }) => {
       await page.goto(`${origin}/#user_id=1&token=FAKE_PANEL_JWT`); await failure(page);

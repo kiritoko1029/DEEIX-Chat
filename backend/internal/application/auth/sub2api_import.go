@@ -54,7 +54,7 @@ func classifySub2APIKey(key port.Key, now time.Time) (string, string) {
 		return "", "inactive"
 	}
 	switch key.Group.Platform {
-	case "openai":
+	case "openai", "deepseek":
 		return "openai_responses", ""
 	case "anthropic":
 		return "anthropic_messages", ""
@@ -65,21 +65,15 @@ func classifySub2APIKey(key port.Key, now time.Time) (string, string) {
 	}
 }
 
-func prepareSub2APIImport(keys []port.Key, userID int64, instance, configured, advertised string) (*Sub2APIImportSummary, []sub2APICandidate, error) {
-	if len(keys) > 2000 {
-		return nil, nil, ErrSub2APIUnavailable
+func prepareSub2APIImport(keys []port.Key, userID int64, instance, configured, advertised string, selections ...sub2APISelection) (*Sub2APIImportSummary, []sub2APICandidate, error) {
+	if err := validateSub2APIKeys(keys, userID); err != nil {
+		return nil, nil, err
 	}
-	seen := make(map[int64]bool, len(keys))
-	// Validate every owner before any identity/provider/profile write.
-	for _, key := range keys {
-		if key.UserID != userID {
-			return nil, nil, sub2APIRejection(port.StageKeys, port.ReasonKeyOwnerMismatch)
-		}
-		if key.ID <= 0 || seen[key.ID] {
-			return nil, nil, ErrSub2APIUnavailable
-		}
-		seen[key.ID] = true
+	selection := sub2APISelection{}
+	if len(selections) > 0 {
+		selection = selections[0]
 	}
+	required := &Sub2APIProtocolRequiredError{Selection: Sub2APIProtocolSelection{Protocols: sub2APIProtocols()}}
 	keys = append([]port.Key(nil), keys...)
 	sort.Slice(keys, func(i, j int) bool { return keys[i].ID < keys[j].ID })
 	summary := &Sub2APIImportSummary{Total: len(keys), Items: make([]Sub2APIImportItem, len(keys))}
@@ -91,6 +85,15 @@ func prepareSub2APIImport(keys []port.Key, userID int64, instance, configured, a
 			item.GroupName = sub2APIText(key.Group.Name, 128)
 		}
 		protocol, reason := classifySub2APIKey(key, time.Now())
+		if selection.skips[key.ID] {
+			reason = "user_skipped"
+		} else if reason == "" || reason == "unsupported_platform" {
+			if chosen := selection.protocols[key.ID]; chosen != "" {
+				protocol, reason = chosen, ""
+			} else if reason == "unsupported_platform" {
+				required.Selection.Items = append(required.Selection.Items, Sub2APIProtocolItem{KeyID: key.ID, Name: item.Name, GroupName: item.GroupName, Platform: sub2APIText(key.Group.Platform, 128)})
+			}
+		}
 		item.Reason = reason
 		if reason != "" {
 			summary.Skipped++
@@ -108,6 +111,9 @@ func prepareSub2APIImport(keys []port.Key, userID int64, instance, configured, a
 			candidates = append(candidates, sub2APICandidate{index: i, key: key, input: personal.Sub2APIImportInput{CandidateInput: personal.CandidateInput{Protocol: protocol, BaseURL: base, APIKey: key.Key}, Name: sub2APIProviderName(key)}})
 		}
 		summary.Items[i] = item
+	}
+	if len(required.Selection.Items) > 0 {
+		return nil, nil, required
 	}
 	if summary.Eligible == 0 {
 		return summary, nil, &Sub2APIImportError{Cause: ErrSub2APINoKey, Summary: summary}
@@ -210,4 +216,22 @@ func sub2APIImportReason(err error) string {
 	default:
 		return "import_failed"
 	}
+}
+
+func validateSub2APIKeys(keys []port.Key, userID int64) error {
+	if len(keys) > 2000 {
+		return ErrSub2APIUnavailable
+	}
+	seen := make(map[int64]bool, len(keys))
+	// Validate every owner before any identity/provider/profile write.
+	for _, key := range keys {
+		if key.UserID != userID {
+			return sub2APIRejection(port.StageKeys, port.ReasonKeyOwnerMismatch)
+		}
+		if key.ID <= 0 || key.ID > 9007199254740991 || seen[key.ID] {
+			return ErrSub2APIUnavailable
+		}
+		seen[key.ID] = true
+	}
+	return nil
 }

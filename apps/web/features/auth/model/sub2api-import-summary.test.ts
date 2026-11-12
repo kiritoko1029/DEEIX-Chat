@@ -8,11 +8,11 @@ import { clearPendingSub2ApiSummary, rememberPendingSub2ApiSummary, takePendingS
 
 const rawSecret = "api_key={{SECRET_hmyzm2gg}} raw upstream message";
 const summary: Sub2ApiImportSummary = {
-  total: 7,
-  eligible: 7,
+  total: 8,
+  eligible: 8,
   imported: 1,
   reused: 1,
-  skipped: 3,
+  skipped: 4,
   failed: 2,
   items: [
     { keyID: 1, name: "Key A", groupName: "OpenAI", providerID: "provider001", status: "imported" },
@@ -22,6 +22,7 @@ const summary: Sub2ApiImportSummary = {
     { keyID: 5, name: "Key E", groupName: "Other", status: "skipped", reason: "unsupported_group" },
     { keyID: 6, name: "Key F", groupName: "OpenAI", status: "skipped", reason: "two_factor_required" },
     { keyID: 7, name: "Key G", groupName: "OpenAI", status: "failed", reason: rawSecret },
+    { keyID: 8, name: "Key H", groupName: "DeepSeek", status: "skipped", reason: "user_skipped" },
   ],
 };
 
@@ -29,7 +30,7 @@ test("summary exposes counts and fixed reason categories without raw errors or c
   const view = createSub2ApiImportSummaryView(summary);
   assert.equal(view.readyCount, 2);
   assert.equal(view.hasIssues, true);
-  assert.deepEqual(view.issues.map((issue) => issue.reason), ["quota", "probe", "unsupported", "two-factor", "other"]);
+  assert.deepEqual(view.issues.map((issue) => issue.reason), ["quota", "probe", "unsupported", "two-factor", "other", "user-skipped"]);
   assert.equal(view.issues[0]?.label, "Key C · OpenAI · #3");
   assert.equal(JSON.stringify(view).includes(rawSecret), false);
   assert.equal(JSON.stringify(view).includes("{{SECRET_hmyzm2gg}}"), false);

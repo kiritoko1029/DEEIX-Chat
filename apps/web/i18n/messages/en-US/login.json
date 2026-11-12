@@ -84,13 +84,14 @@
     "identityMismatch": "The link user ID or API Key owner does not match the verified identity. Reopen the entry from the correct account.",
     "userInactive": "The sub2api user is not active. Check the account status.",
     "keyAccessDenied": "Identity verification passed, but sub2api denied access to the user's API Keys. Check account permissions and session status.",
-    "noUsableKey": "No eligible Key is available. Check that it belongs to an active OpenAI, Anthropic or Gemini group, has not expired and has remaining quota.",
+    "noUsableKey": "No eligible Key is available. Check that its group is enabled, it has not expired and it has remaining quota.",
     "serviceDisabled": "This deployment has not enabled sub2api integration or personal model providers. Contact the administrator.",
     "gatewayNotAllowed": "The gateway is not trusted by this deployment. Ask the administrator to configure it explicitly.",
     "upstreamUnavailable": "The sub2api response could not be read. Check connectivity, timeouts or API version compatibility and reopen the entry later.",
     "rateLimited": "Too many sign-in attempts. Reopen the entry later.",
     "providerUnavailable": "Provider import or model discovery failed. Check host restrictions, provider limits, existing provider status and Key validity.",
     "twoFactorFailed": "Two-factor verification could not be started. Return to normal sign-in.",
+    "protocolExpired": "Protocol selection expired. Return to sub2api and request a new sign-in link.",
     "importSummary": {
       "ready": "{count} services are ready. Choose one manually from the model list",
       "partial": "{count} services are ready; some Keys were not imported",
@@ -128,8 +129,26 @@
         "duplicate": "The provider identity conflicts with an existing record; nothing was overwritten",
         "blocked-host": "The gateway host is blocked by the deployment security policy",
         "feature-disabled": "Personal model providers are disabled",
+        "user-skipped": "Skipped by you for this sign-in",
         "other": "Not imported. Try again later or contact the administrator"
       }
+    },
+    "protocolSelection": {
+      "title": "Choose an API protocol",
+      "description": "The platform protocol for these Keys could not be determined. Choose how each Key should be imported, or skip it for this sign-in. No protocol is selected automatically.",
+      "bulkActions": "Apply to all undecided Keys",
+      "applyToUnselected": "Apply {protocol}",
+      "skipUnselected": "Skip all undecided",
+      "progress": "{selected} of {total} Keys decided",
+      "unnamedKey": "Unnamed Key",
+      "group": "Group:",
+      "platform": "Platform:",
+      "notProvided": "Not provided",
+      "keyProtocol": "Protocol for {name}",
+      "chooseProtocol": "Choose a protocol or skip",
+      "skipOnce": "Skip for this sign-in",
+      "confirm": "Confirm and continue",
+      "cancel": "Back to normal sign-in"
     },
     "backToLogin": "Back to normal sign-in"
   },

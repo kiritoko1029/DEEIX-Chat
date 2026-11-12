@@ -32,6 +32,9 @@ func TestSub2APIIdentityAtomicAndUnique(t *testing.T) {
 	}
 	repo := NewRepo(db)
 	ctx := context.Background()
+	if _, err := repo.LookupSub2APIUser(ctx, "https://sub.example.com", 7); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatal("lookup must not provision", err)
+	}
 	now := time.Now()
 	input := func(i int) repository.CreateWithCredentialInput {
 		return repository.CreateWithCredentialInput{User: &domain.User{PublicID: fmt.Sprintf("public%d", i), Username: fmt.Sprintf("local%d", i), Role: "user", Status: "active", OnboardingCompletedAt: &now}, Credential: domain.Credential{PasswordEnabled: false}}
@@ -81,12 +84,33 @@ func TestSub2APIIdentityAtomicAndUnique(t *testing.T) {
 	if err != nil || other.ID == first {
 		t.Fatal("instances shared identity")
 	}
+	for _, tc := range []struct {
+		instance string
+		remote   int64
+		want     uint
+	}{
+		{"https://sub.example.com", 7, first},
+		{"https://other.example.com", 7, other.ID},
+		{"https://sub.example.com", 8, 0},
+	} {
+		got, err := repo.LookupSub2APIUser(ctx, tc.instance, tc.remote)
+		if tc.want == 0 {
+			if !errors.Is(err, repository.ErrNotFound) {
+				t.Fatal("cross-subject lookup", err)
+			}
+		} else if err != nil || got.ID != tc.want {
+			t.Fatal("incorrect readonly binding", err)
+		}
+	}
 	// Existing user names cannot be used to claim identities.
 	if _, err := repo.ResolveSub2APIUser(ctx, "https://third.example.com", 7, repository.CreateWithCredentialInput{User: &domain.User{PublicID: "fresh", Username: other.Username, Role: "user", Status: "active"}}); err == nil {
 		t.Fatal("claimed existing username")
 	}
 	if err := db.Delete(&models.User{}, first).Error; err != nil {
 		t.Fatal(err)
+	}
+	if _, err := repo.LookupSub2APIUser(ctx, "https://sub.example.com", 7); !errors.Is(err, repository.ErrConflict) {
+		t.Fatal("tombstone lookup must fail closed", err)
 	}
 	if _, err := repo.ResolveSub2APIUser(ctx, "https://sub.example.com", 7, input(30)); err == nil {
 		t.Fatal("deleted identity reassigned")

@@ -4,7 +4,7 @@
         "description": "DEEIX Chat 后端 API 文档",
         "title": "DEEIX Chat API",
         "contact": {},
-        "version": "2026.11.12"
+        "version": "2026.11.12-fix.1"
     },
     "basePath": "/api/v1",
     "paths": {
@@ -10447,6 +10447,12 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/AuthErrorDoc"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/AuthErrorDoc"
                         }
@@ -31713,6 +31719,18 @@
                 "userID"
             ],
             "properties": {
+                "protocolSelections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Sub2APIProtocolChoiceRequest"
+                    }
+                },
+                "skipKeyIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "token": {
                     "type": "string",
                     "maxLength": 16384,
@@ -31795,6 +31813,28 @@
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "Sub2APIProtocolChoiceRequest": {
+            "type": "object",
+            "required": [
+                "keyID",
+                "protocol"
+            ],
+            "properties": {
+                "keyID": {
+                    "type": "integer",
+                    "maximum": 9007199254740991,
+                    "minimum": 1
+                },
+                "protocol": {
+                    "type": "string",
+                    "enum": [
+                        "openai_responses",
+                        "anthropic_messages",
+                        "openai_chat_completions"
+                    ]
                 }
             }
         },

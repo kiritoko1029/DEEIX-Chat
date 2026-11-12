@@ -80,7 +80,7 @@ func TestSub2APIAllKeysSummaryStablePartialFailuresAndNoMutationBeforeTwoFactor(
 		remote.snapshot.Keys = append([]port.Key{key}, remote.snapshot.Keys...)
 	}
 	importer.errorsByID = map[int64]error{7: personal.ErrUpstreamUnavailable}
-	result, err := s.ExchangeSub2API(context.Background(), 7, "synthetic-token", "test", requestmeta.SessionAuditContext{})
+	result, err := s.ExchangeSub2API(context.Background(), 7, "synthetic-token", "test", requestmeta.SessionAuditContext{}, Sub2APIExchangeOptions{SkipKeyIDs: []int64{6}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestSub2APIAllKeysSummaryStablePartialFailuresAndNoMutationBeforeTwoFactor(
 			t.Fatal("unstable key ordering")
 		}
 	}
-	if summary.Items[3].Reason != "inactive" || summary.Items[4].Reason != "expired" || summary.Items[5].Reason != "unsupported_platform" || summary.Items[6].Reason != "probe_failed" {
+	if summary.Items[3].Reason != "inactive" || summary.Items[4].Reason != "expired" || summary.Items[5].Reason != "user_skipped" || summary.Items[6].Reason != "probe_failed" {
 		t.Fatal("wrong classifications")
 	}
 	for i, protocol := range []string{"openai_responses", "anthropic_messages", "google_generate_content"} {
@@ -108,7 +108,7 @@ func TestSub2APIAllKeysSummaryStablePartialFailuresAndNoMutationBeforeTwoFactor(
 	repo.twoFactor = true
 	before := repo.profileWrites
 	remote.snapshot.User.Username = "must not sync"
-	result, err = s.ExchangeSub2API(context.Background(), 7, "synthetic-token", "test", requestmeta.SessionAuditContext{})
+	result, err = s.ExchangeSub2API(context.Background(), 7, "synthetic-token", "test", requestmeta.SessionAuditContext{}, Sub2APIExchangeOptions{SkipKeyIDs: []int64{6}})
 	if err != nil || !result.TwoFactorRequired || repo.profileWrites != before || result.User.ID != 0 || result.User.ExternalProfile != nil {
 		t.Fatal("2FA mutation or disclosure", err)
 	}

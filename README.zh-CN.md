@@ -30,6 +30,7 @@
 
 - [sub2api 配置与安全边界](<deploy/SUB2API.md>)
 - [GitHub Actions / Docker Hub 发布流程](<deploy/RELEASING.md>)
+- [v2026.11.12-fix.1：DeepSeek 与按 Key 协议选择](<docs/releases/2026.11.12-fix.1.md>)——请明确使用 `195658/deeix-chat:2026.11.12-fix.1`，本修订版不替换 `latest`。
 - [v2026.11.12 发布说明](<docs/releases/2026.11.12.md>)
 
 下方保留上游项目介绍与原有文档。

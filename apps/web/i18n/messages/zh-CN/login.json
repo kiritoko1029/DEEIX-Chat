@@ -84,13 +84,14 @@
     "identityMismatch": "链接用户 ID 或 API Key 归属与已验证身份不一致，已拒绝接入。请从当前账号重新打开入口。",
     "userInactive": "sub2api 用户当前不可用，请检查账号状态。",
     "keyAccessDenied": "身份校验后，sub2api 拒绝读取该用户的 API Key。请检查账号权限与会话状态。",
-    "noUsableKey": "该账号没有可自动导入的有效 Key。请检查 Key 是否已绑定启用的 OpenAI、Anthropic 或 Gemini 分组，以及有效期和额度。",
+    "noUsableKey": "该账号没有可自动导入的有效 Key。请检查 Key 分组是否启用，以及 Key 的有效期和额度。",
     "serviceDisabled": "本部署尚未启用 sub2api 接入或个人模型服务，请联系管理员。",
     "gatewayNotAllowed": "模型网关地址未获部署方信任，请由管理员显式配置网关地址。",
     "upstreamUnavailable": "无法读取 sub2api 响应，可能是网络、超时或接口版本差异，请稍后重新打开入口。",
     "rateLimited": "接入请求过于频繁，请稍后重新打开入口。",
     "providerUnavailable": "个人模型服务导入或模型探测失败，请检查主机限制、服务数量上限、已有服务状态和 Key 可用性。",
     "twoFactorFailed": "无法启动两步验证，请返回普通登录。",
+    "protocolExpired": "协议选择已过期。请返回 sub2api 获取新的免登录链接。",
     "importSummary": {
       "ready": "已就绪 {count} 个服务，可在模型列表手动选择",
       "partial": "已就绪 {count} 个服务，部分 Key 未导入",
@@ -128,8 +129,26 @@
         "duplicate": "服务标识发生冲突，未覆盖已有记录",
         "blocked-host": "网关主机被部署方的安全策略阻止",
         "feature-disabled": "个人模型服务功能已关闭",
+        "user-skipped": "本次由你主动跳过",
         "other": "未导入，请稍后重试或联系管理员"
       }
+    },
+    "protocolSelection": {
+      "title": "选择接口协议",
+      "description": "无法确定这些 Key 所属平台的接口协议。请为每个 Key 显式选择导入协议，或选择在本次登录中跳过；系统不会替你自动猜选。",
+      "bulkActions": "应用到全部未选项",
+      "applyToUnselected": "应用 {protocol}",
+      "skipUnselected": "跳过全部未选项",
+      "progress": "已决定 {selected} / {total} 个 Key",
+      "unnamedKey": "未命名 Key",
+      "group": "分组：",
+      "platform": "平台：",
+      "notProvided": "未提供",
+      "keyProtocol": "{name} 的接口协议",
+      "chooseProtocol": "选择协议或本次跳过",
+      "skipOnce": "本次跳过",
+      "confirm": "确认并继续",
+      "cancel": "返回普通登录"
     },
     "backToLogin": "返回普通登录"
   },

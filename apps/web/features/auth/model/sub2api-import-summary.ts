@@ -4,7 +4,7 @@ export type Sub2ApiImportReason =
   | "quota" | "limit" | "probe" | "timeout" | "unsupported" | "two-factor"
   | "inactive" | "expired" | "key-invalid" | "group-invalid" | "gateway"
   | "suspended" | "disabled" | "credential-changed" | "duplicate"
-  | "blocked-host" | "feature-disabled" | "other";
+  | "blocked-host" | "feature-disabled" | "user-skipped" | "other";
 
 export type Sub2ApiImportIssueView = {
   id: string;
@@ -100,6 +100,7 @@ function classifyReason(reason: string | undefined): Sub2ApiImportReason {
     case "duplicate": return "duplicate";
     case "blocked_host": return "blocked-host";
     case "feature_disabled": return "feature-disabled";
+    case "user_skipped": return "user-skipped";
     default: return "other";
   }
 }

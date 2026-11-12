@@ -9462,6 +9462,14 @@ definitions:
     type: object
   Sub2APIExchangeRequest:
     properties:
+      protocolSelections:
+        items:
+          $ref: '#/definitions/Sub2APIProtocolChoiceRequest'
+        type: array
+      skipKeyIDs:
+        items:
+          type: integer
+        type: array
       token:
         maxLength: 16384
         minLength: 1
@@ -9525,6 +9533,22 @@ definitions:
     - reused
     - skipped
     - total
+    type: object
+  Sub2APIProtocolChoiceRequest:
+    properties:
+      keyID:
+        maximum: 9007199254740991
+        minimum: 1
+        type: integer
+      protocol:
+        enum:
+        - openai_responses
+        - anthropic_messages
+        - openai_chat_completions
+        type: string
+    required:
+    - keyID
+    - protocol
     type: object
   SubmitFileEmbeddingsRequest:
     properties:
@@ -12179,7 +12203,7 @@ info:
   contact: {}
   description: DEEIX Chat 后端 API 文档
   title: DEEIX Chat API
-  version: "2026.11.12"
+  version: "2026.11.12-fix.1"
 paths:
   /admin/announcements:
     get:
@@ -18825,6 +18849,10 @@ paths:
             $ref: '#/definitions/AuthErrorDoc'
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/AuthErrorDoc'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/AuthErrorDoc'
         "413":

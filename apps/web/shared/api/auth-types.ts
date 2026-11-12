@@ -25,6 +25,26 @@ export type Sub2ApiExternalProfile = ExternalProfileResponse;
 export type Sub2ApiImportItem = Sub2APIImportItemResponse;
 export type Sub2ApiImportSummary = Sub2APIImportResponse;
 
+export type Sub2ApiProtocol = "openai_responses" | "anthropic_messages" | "openai_chat_completions";
+export type Sub2ApiProtocolSelectionItem = {
+  keyID: number;
+  name: string;
+  groupName: string;
+  platform: string;
+};
+export type Sub2ApiProtocolSelection = {
+  items: Sub2ApiProtocolSelectionItem[];
+  protocols: Sub2ApiProtocol[];
+};
+export type Sub2ApiProtocolChoice = {
+  keyID: number;
+  protocol: Sub2ApiProtocol;
+};
+export type Sub2ApiExchangeOptions = {
+  protocolSelections: Sub2ApiProtocolChoice[];
+  skipKeyIDs: number[];
+};
+
 export type UserDTO = Omit<AuthUserResponse, "externalProfile"> & {
   externalProfile?: Sub2ApiExternalProfile;
 };

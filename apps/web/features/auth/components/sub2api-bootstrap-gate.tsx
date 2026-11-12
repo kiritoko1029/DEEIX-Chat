@@ -9,12 +9,13 @@ import { useAuthSub2ApiBootstrap } from "@/features/auth/hooks/use-auth-sub2api-
 import { AppLogo } from "@/shared/components/app-logo";
 import { sub2ApiFailureMessageKeys } from "@/shared/auth/sub2api-failure";
 import { Sub2ApiImportSummaryDetails } from "@/features/auth/components/sub2api-import-summary-details";
+import { Sub2ApiProtocolSelection } from "@/features/auth/components/sub2api-protocol-selection";
 import { createSub2ApiImportSummaryView } from "@/features/auth/model/sub2api-import-summary";
 
 export function Sub2ApiBootstrapGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useTranslations("login.sub2api");
-  const { state, returnToLogin } = useAuthSub2ApiBootstrap();
+  const { state, submitProtocolDecisions, returnToLogin } = useAuthSub2ApiBootstrap();
 
   if (state.status === "ready" || (state.status === "handoff" && pathname !== "/")) {
     return <>{children}</>;
@@ -27,8 +28,8 @@ export function Sub2ApiBootstrapGate({ children }: { children: React.ReactNode }
   const errorMessage = state.status === "error" ? t(sub2ApiFailureMessageKeys[state.reason]) : "";
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 text-foreground">
-      <div className="w-full max-w-[360px]">
+    <main className="flex min-h-screen items-center justify-center overflow-y-auto px-4 py-8 text-foreground">
+      <div className={state.status === "protocol-required" ? "w-full max-w-2xl" : "w-full max-w-[360px]"}>
         <div className="flex flex-col items-center text-center">
           <AppLogo width={32} height={32} priority className="h-9 w-auto" />
         </div>
@@ -46,6 +47,10 @@ export function Sub2ApiBootstrapGate({ children }: { children: React.ReactNode }
             >
               {t("backToLogin")}
             </Button>
+          </div>
+        ) : state.status === "protocol-required" ? (
+          <div className="mt-7">
+            <Sub2ApiProtocolSelection selection={state.selection} onSubmit={submitProtocolDecisions} onCancel={returnToLogin} />
           </div>
         ) : (
           <div className="mt-7 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground" aria-live="polite">

@@ -104,3 +104,35 @@ func TestSub2APIImportsKeepSameNamedModelsIndependentlySelectable(t *testing.T) 
 		t.Fatal("empty model set restored", err)
 	}
 }
+
+func TestSub2APIProtocolLookupIsOwnerInstanceAndKeyBoundAndReadOnly(t *testing.T) {
+	f := newFixture(t, nil)
+	ctx := context.Background()
+	input := CandidateInput{Protocol: "openai_chat_completions", BaseURL: "https://sub.example.com/v1", APIKey: "synthetic-key"}
+	if err := f.service.EnsureSub2API(ctx, 7, "https://sub.example.com", 1, input, true, RequestMeta{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		owner    uint
+		instance string
+		key      int64
+		found    bool
+	}{
+		{7, "https://sub.example.com", 1, true},
+		{8, "https://sub.example.com", 1, false},
+		{7, "https://other.example.com", 1, false},
+		{7, "https://sub.example.com", 2, false},
+	} {
+		protocol, err := f.service.LookupSub2APIProtocol(ctx, tc.owner, tc.instance, tc.key)
+		if tc.found {
+			if err != nil || protocol != input.Protocol {
+				t.Fatal("missing stored protocol", err)
+			}
+		} else if !errors.Is(err, repository.ErrNotFound) {
+			t.Fatal("cross-boundary protocol lookup", err)
+		}
+	}
+	if len(f.lister.calls) != 1 || len(f.repo.items) != 1 {
+		t.Fatal("lookup probed or wrote")
+	}
+}

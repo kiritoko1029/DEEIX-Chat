@@ -1,5 +1,5 @@
 export type Sub2ApiBootstrapFailure =
-  | "invalid-link" | "exchange-failed" | "two-factor-failed"
+  | "invalid-link" | "exchange-failed" | "two-factor-failed" | "protocol-expired"
   | "session-binding" | "token-rejected" | "identity-mismatch"
   | "user-inactive" | "key-access-denied" | "no-key"
   | "service-disabled" | "gateway-not-allowed" | "upstream-unavailable"
@@ -38,6 +38,7 @@ export const sub2ApiFailureMessageKeys: Record<Sub2ApiBootstrapFailure, string> 
   "invalid-link": "invalidLink",
   "exchange-failed": "exchangeFailed",
   "two-factor-failed": "twoFactorFailed",
+  "protocol-expired": "protocolExpired",
   "session-binding": "sessionBinding",
   "token-rejected": "tokenRejected",
   "identity-mismatch": "identityMismatch",

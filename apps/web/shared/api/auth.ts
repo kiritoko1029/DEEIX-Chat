@@ -22,6 +22,7 @@ import type {
   PasswordResetStartData,
   PasswordChangeVerificationStartData,
   SecurityVerificationMethod,
+  Sub2ApiExchangeOptions,
   TwoFactorDisableData,
   TwoFactorRecoveryCodesData,
   TwoFactorSetupStartData,
@@ -52,10 +53,18 @@ export async function login(username: string, password: string): Promise<LoginDa
   });
 }
 
-export async function exchangeSub2Api(userID: number, token: string): Promise<LoginData> {
+export async function exchangeSub2Api(userID: number, token: string, options?: Sub2ApiExchangeOptions, signal?: AbortSignal): Promise<LoginData> {
   return apiRequest<LoginData>("/api/v1/auth/sub2api/exchange", {
     method: "POST",
-    body: { userID, token },
+    body: {
+      userID,
+      token,
+      ...(options ? {
+        protocolSelections: options.protocolSelections,
+        skipKeyIDs: options.skipKeyIDs,
+      } : {}),
+    },
+    signal,
   });
 }
 

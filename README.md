@@ -30,6 +30,7 @@ This branch adds trusted sub2api sign-in links, display-profile synchronization,
 
 - [sub2api setup and security boundaries](<deploy/SUB2API.md>)
 - [GitHub Actions / Docker Hub publishing](<deploy/RELEASING.md>)
+- [v2026.11.12-fix.1: DeepSeek and per-Key protocol selection](<docs/releases/2026.11.12-fix.1.md>) — use the explicit `195658/deeix-chat:2026.11.12-fix.1` image tag; this revision does not replace `latest`.
 - [v2026.11.12 release notes](<docs/releases/2026.11.12.md>)
 
 The upstream project overview and documentation follow below.

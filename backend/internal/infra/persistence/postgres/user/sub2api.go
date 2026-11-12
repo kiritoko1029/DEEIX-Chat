@@ -84,3 +84,22 @@ func (r *Repo) SyncSub2APIProfile(ctx context.Context, userID uint, instance str
 	}
 	return nil
 }
+
+func (r *Repo) LookupSub2APIUser(ctx context.Context, instance string, remoteID int64) (*domainuser.User, error) {
+	if instance == "" || remoteID <= 0 {
+		return nil, repository.ErrInvalidInput
+	}
+	sum := sha256.Sum256([]byte(instance))
+	var identity models.Sub2APIIdentity
+	if err := r.db.WithContext(ctx).Where("instance_hash = ? AND remote_id = ?", hex.EncodeToString(sum[:]), remoteID).First(&identity).Error; err != nil {
+		return nil, translateError(err)
+	}
+	if identity.Instance != instance {
+		return nil, repository.ErrConflict
+	}
+	user, err := r.GetByID(ctx, identity.UserID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, repository.ErrConflict
+	}
+	return user, err
+}
