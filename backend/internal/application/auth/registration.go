@@ -279,7 +279,7 @@ func (s *Service) RegisterWithEmail(ctx context.Context, input RegisterWithEmail
 		EmailSource:     domainuser.EmailSourceLocalRegister,
 		Role:            domainuser.RoleUser,
 		Status:          domainuser.StatusActive,
-		Timezone:        "Etc/UTC",
+		Timezone:        domainuser.DefaultNewUserTimezone,
 		Locale:          "en-US",
 		EmailVerifiedAt: verifiedAt,
 	}

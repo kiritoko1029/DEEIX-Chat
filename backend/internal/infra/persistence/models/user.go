@@ -35,7 +35,7 @@ type User struct {
 	Phone                 string     `gorm:"size:32;not null;default:'';index:idx_identity_users_phone;comment:手机号"`
 	Role                  string     `gorm:"size:32;not null;default:'user';index:idx_identity_users_role;comment:角色(superadmin/admin/user)"`
 	Status                string     `gorm:"size:32;not null;default:'active';index:idx_identity_users_status;comment:账户状态"`
-	Timezone              string     `gorm:"size:64;not null;default:'Etc/UTC';comment:时区"`
+	Timezone              string     `gorm:"size:64;not null;default:'Asia/Shanghai';comment:时区"`
 	Locale                string     `gorm:"size:16;not null;default:'en-US';comment:语言区域"`
 	ProfilePreferences    string     `gorm:"type:text;not null;default:'';comment:对话偏好"`
 	AppearancePreferences string     `gorm:"type:text;not null;default:'';comment:外观偏好JSON"`

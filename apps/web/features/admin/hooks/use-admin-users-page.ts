@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
+import { mergeUserResponseProfile } from "@/shared/auth/external-profile";
 import {
   createGeneratedGithubAvatarRef,
   generateAvatarVariant,
@@ -412,7 +413,8 @@ export function useAdminUsersPage({
           reason: "inline_admin_table",
         });
 
-        onSetUsers((current) => replaceByID(current, item.id, (user) => user.id, response.user));
+        const nextUser = mergeUserResponseProfile(previousItem, response.user);
+        onSetUsers((current) => replaceByID(current, item.id, (user) => user.id, nextUser));
         toast.success(t("toast.inlineUpdated", { field: field === "role" ? t("fields.role") : t("fields.status") }));
       } catch (error) {
         onSetUsers((current) => replaceByID(current, item.id, (user) => user.id, previousItem));
@@ -531,11 +533,12 @@ export function useAdminUsersPage({
         reason: "admin_update_avatar",
       });
 
-      onSetUsers((current) => replaceByID(current, target.id, (user) => user.id, response.user));
+      const nextUser = mergeUserResponseProfile(target, response.user);
+      onSetUsers((current) => replaceByID(current, target.id, (user) => user.id, nextUser));
       toast.success(t("toast.avatarUpdated"));
-      setEditDialogTarget((current) => (current?.id === target.id ? response.user : current));
+      setEditDialogTarget((current) => (current?.id === target.id ? nextUser : current));
       setEditPayload((current) =>
-        editDialogTarget?.id === target.id ? { ...current, avatarURL: response.user.avatarURL.trim() } : current,
+        editDialogTarget?.id === target.id ? { ...current, avatarURL: nextUser.avatarURL.trim() } : current,
       );
       setAvatarDialog({ mode: "closed" });
     } catch (error) {
@@ -658,7 +661,7 @@ export function useAdminUsersPage({
       let nextUser: AdminUserDTO = editDialogTarget;
       if (hasPatchChanges(patchPayload)) {
         const response = await patchAdminUser(token, editDialogTarget.id, patchPayload);
-        nextUser = response.user;
+        nextUser = mergeUserResponseProfile(editDialogTarget, response.user);
       }
       if (billingBalanceChanged) {
         const response = await updateAdminBillingAccountBalance(token, editDialogTarget.id, {
@@ -738,7 +741,8 @@ export function useAdminUsersPage({
         return;
       }
       const response = await resetAdminUserTwoFactor(token, user.id);
-      const nextUser = userFromUnknownResponse(response) ?? { ...user, twoFactorEnabled: false };
+      const responseUser = userFromUnknownResponse(response);
+      const nextUser = responseUser ? mergeUserResponseProfile(user, responseUser) : { ...user, twoFactorEnabled: false };
       onSetUsers((current) => replaceByID(current, user.id, (item) => item.id, nextUser));
       toast.success(t("toast.twoFactorReset"));
       setResetTwoFactorDialogTarget(null);
@@ -854,7 +858,13 @@ export function useAdminUsersPage({
       const successResponses = results
         .filter((result): result is Extract<typeof result, { status: "fulfilled" }> => result.status === "fulfilled")
         .map((result) => result.value.user);
-      onSetUsers((current) => successResponses.reduce((next, user) => replaceByID(next, user.id, (item) => item.id, user), current));
+      onSetUsers((current) =>
+        successResponses.reduce((next, user) => {
+          const previousUser = current.find((item) => item.id === user.id);
+          const nextUser = previousUser ? mergeUserResponseProfile(previousUser, user) : user;
+          return replaceByID(next, user.id, (item) => item.id, nextUser);
+        }, current),
+      );
       if (failedUsers.length > 0) {
         const failedRollbackUsers = failedUsers.map((item) => ({ item, index: items.findIndex((current) => current.id === item.id) }));
         onSetUsers((current) => restoreManyAt(current, failedRollbackUsers, (item) => item.id));
@@ -915,7 +925,13 @@ export function useAdminUsersPage({
       const successResponses = results
         .filter((result): result is Extract<typeof result, { status: "fulfilled" }> => result.status === "fulfilled")
         .map((result) => result.value.user);
-      onSetUsers((current) => successResponses.reduce((next, user) => replaceByID(next, user.id, (item) => item.id, user), current));
+      onSetUsers((current) =>
+        successResponses.reduce((next, user) => {
+          const previousUser = current.find((item) => item.id === user.id);
+          const nextUser = previousUser ? mergeUserResponseProfile(previousUser, user) : user;
+          return replaceByID(next, user.id, (item) => item.id, nextUser);
+        }, current),
+      );
       if (failedUsers.length > 0) {
         const failedRollbackUsers = failedUsers.map((item) => ({ item, index: items.findIndex((current) => current.id === item.id) }));
         onSetUsers((current) => restoreManyAt(current, failedRollbackUsers, (item) => item.id));

@@ -19,7 +19,7 @@ func TestListUsersSearchesBeforePagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err = db.AutoMigrate(&models.User{}); err != nil {
+	if err = db.AutoMigrate(&models.User{}, &models.Sub2APIIdentity{}); err != nil {
 		t.Fatalf("migrate users: %v", err)
 	}
 

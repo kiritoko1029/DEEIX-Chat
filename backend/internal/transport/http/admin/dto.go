@@ -120,6 +120,7 @@ type UserIdentityProviderSummaryResponse struct {
 
 // UserResponse 面向前端的用户视图响应。
 type UserResponse struct {
+	ExternalProfile        *ExternalProfileResponse              `json:"externalProfile,omitempty"`
 	ID                     uint                                  `json:"id"`
 	PublicID               string                                `json:"publicID"`
 	Username               string                                `json:"username"`
@@ -153,6 +154,16 @@ type UserResponse struct {
 	BillingBalanceUSD      float64                               `json:"billingBalanceUSD"`
 	BillingAccountStatus   string                                `json:"billingAccountStatus"`
 	IdentityProviders      []UserIdentityProviderSummaryResponse `json:"identityProviders"`
+}
+
+// ExternalProfileResponse 仅用于来源身份展示。
+type ExternalProfileResponse struct {
+	Provider        string     `json:"provider" enums:"sub2api"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	DisplayName     string     `json:"displayName"`
+	RemoteID        int64      `json:"remoteID,omitempty"`
+	ProfileSyncedAt *time.Time `json:"profileSyncedAt" extensions:"x-nullable,!x-omitempty"`
 }
 
 // UserDataResponse 用户操作响应。
@@ -703,6 +714,7 @@ type ErrorDoc struct {
 
 func toUserResponse(v userview.UserView) UserResponse {
 	return UserResponse{
+		ExternalProfile:        toExternalProfileResponse(v.ExternalProfile),
 		ID:                     v.ID,
 		PublicID:               v.PublicID,
 		Username:               v.Username,
@@ -736,6 +748,16 @@ func toUserResponse(v userview.UserView) UserResponse {
 		BillingBalanceUSD:      float64(v.BillingBalanceNanousd) / 1000000000.0,
 		BillingAccountStatus:   v.BillingAccountStatus,
 		IdentityProviders:      toUserIdentityProviderSummaryResponses(v.IdentityProviders),
+	}
+}
+
+func toExternalProfileResponse(profile *domainuser.ExternalProfile) *ExternalProfileResponse {
+	if profile == nil {
+		return nil
+	}
+	return &ExternalProfileResponse{
+		Provider: profile.Provider, Username: profile.Username, Email: profile.Email,
+		DisplayName: profile.DisplayName, RemoteID: profile.RemoteID, ProfileSyncedAt: profile.ProfileSyncedAt,
 	}
 }
 

@@ -37,6 +37,11 @@
       "displayName": "显示名称",
       "displayNamePlaceholder": "界面中显示的名称",
       "displayNameInvalid": "显示名称需为 3-16 个字符。",
+      "externalAccount": "sub2api 账号（来源邮箱）",
+      "externalDisplayName": "sub2api 显示名称",
+      "pendingSync": "待同步",
+      "externalDescription": "用户名与来源邮箱由 sub2api 同步，只读展示；来源邮箱不是本站安全验证邮箱。头像、时区和对话偏好仍可编辑。",
+      "pendingSyncDescription": "部分来源资料尚未同步，缺失内容显示为待同步，不代表已完成同步。",
       "timezone": "时区",
       "conversationPreferences": "对话偏好",
       "conversationPreferencesPlaceholder": "偏好的风格、语言习惯、输出格式和常用工作流。"

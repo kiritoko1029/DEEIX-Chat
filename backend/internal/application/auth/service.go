@@ -198,7 +198,7 @@ func (s *Service) EnsureBootstrapSuperAdmin(ctx context.Context) (*BootstrapSupe
 		Email:       "",
 		Role:        domainuser.RoleSuperAdmin,
 		Status:      domainuser.StatusActive,
-		Timezone:    "Etc/UTC",
+		Timezone:    domainuser.DefaultNewUserTimezone,
 		Locale:      "en-US",
 	}
 

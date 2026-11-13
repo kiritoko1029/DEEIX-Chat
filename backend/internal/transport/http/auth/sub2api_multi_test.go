@@ -289,3 +289,35 @@ func TestSub2APIHTTPDistinctKeyIDsNeverMergeEvenWhenCredentialsMatch(t *testing.
 		t.Fatal("keys merged")
 	}
 }
+
+func TestSub2APIHTTPMeShowsUnsyncedBinding(t *testing.T) {
+	router, db, remote := exchangeFixtureWithLimit(t, true, exchangeAllowLimiter{}, 10)
+	remote.err = fmt.Errorf("profile reads must use the saved binding")
+	user := models.User{PublicID: "legacy-bound-user", Username: "sub2api_legacy_random", Role: "user", Status: "active"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.Sub2APIIdentity{InstanceHash: "synthetic-legacy-hash", Instance: "https://sub.example.com", RemoteID: 42, UserID: user.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test-me", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("me status=%d body=%s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Data struct {
+			User UserResponse `json:"user"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	profile := payload.Data.User.ExternalProfile
+	if profile == nil || profile.Provider != "sub2api" || profile.RemoteID != 42 || profile.ProfileSyncedAt != nil || profile.Username != "" || profile.Email != "" || profile.DisplayName != "" {
+		t.Fatalf("unsynced profile=%+v body=%s", profile, w.Body.String())
+	}
+	if payload.Data.User.Username != user.Username || payload.Data.User.Email != "" || payload.Data.User.EmailVerifiedAt != nil {
+		t.Fatal("unsynced binding changed local identity")
+	}
+}

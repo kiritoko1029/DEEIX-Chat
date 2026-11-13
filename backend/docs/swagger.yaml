@@ -196,6 +196,31 @@ definitions:
     - data
     - errorMsg
     type: object
+  AdminExternalProfileResponse:
+    properties:
+      displayName:
+        type: string
+      email:
+        type: string
+      profileSyncedAt:
+        type: string
+        x-nullable: true
+        x-omitempty: false
+      provider:
+        enum:
+        - sub2api
+        type: string
+      remoteID:
+        type: integer
+      username:
+        type: string
+    required:
+    - displayName
+    - email
+    - profileSyncedAt
+    - provider
+    - username
+    type: object
   AdminPersonalProviderPageResponseDoc:
     properties:
       data:
@@ -356,6 +381,8 @@ definitions:
         type: string
         x-nullable: true
         x-omitempty: false
+      externalProfile:
+        $ref: '#/definitions/AdminExternalProfileResponse'
       id:
         type: integer
       identityProviders:
@@ -731,6 +758,31 @@ definitions:
     - userLabel
     - username
     type: object
+  AuthExternalProfileResponse:
+    properties:
+      displayName:
+        type: string
+      email:
+        type: string
+      profileSyncedAt:
+        type: string
+        x-nullable: true
+        x-omitempty: false
+      provider:
+        enum:
+        - sub2api
+        type: string
+      remoteID:
+        type: integer
+      username:
+        type: string
+    required:
+    - displayName
+    - email
+    - profileSyncedAt
+    - provider
+    - username
+    type: object
   AuthUserIdentityProviderSummaryResponse:
     properties:
       id:
@@ -773,7 +825,7 @@ definitions:
         x-nullable: true
         x-omitempty: false
       externalProfile:
-        $ref: '#/definitions/ExternalProfileResponse'
+        $ref: '#/definitions/AuthExternalProfileResponse'
       id:
         type: integer
       identityProviders:
@@ -3838,24 +3890,6 @@ definitions:
     - userID
     - userLabel
     - userUsername
-    type: object
-  ExternalProfileResponse:
-    properties:
-      displayName:
-        type: string
-      email:
-        type: string
-      provider:
-        enum:
-        - sub2api
-        type: string
-      username:
-        type: string
-    required:
-    - displayName
-    - email
-    - provider
-    - username
     type: object
   FeaturePolicyResponse:
     properties:
@@ -12203,7 +12237,7 @@ info:
   contact: {}
   description: DEEIX Chat 后端 API 文档
   title: DEEIX Chat API
-  version: "2026.11.13"
+  version: "2026.11.13-fix.1"
 paths:
   /admin/announcements:
     get:

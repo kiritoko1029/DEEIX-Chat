@@ -65,7 +65,7 @@ func (s *Service) EnsureLocalOwner(ctx context.Context) (*domainuser.User, error
 		DisplayName:           LocalOwnerDisplayName,
 		Role:                  domainuser.RoleSuperAdmin,
 		Status:                domainuser.StatusActive,
-		Timezone:              "Etc/UTC",
+		Timezone:              domainuser.DefaultNewUserTimezone,
 		Locale:                "en-US",
 		OnboardingCompletedAt: &now,
 		UsernameChangedAt:     &now,

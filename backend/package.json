@@ -1,6 +1,6 @@
 {
   "name": "@deeix/api",
-  "version": "2026.11.13",
+  "version": "2026.11.13-fix.1",
   "private": true,
   "scripts": {
     "dev": "make run",

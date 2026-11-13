@@ -4,7 +4,7 @@
         "description": "DEEIX Chat 后端 API 文档",
         "title": "DEEIX Chat API",
         "contact": {},
-        "version": "2026.11.13"
+        "version": "2026.11.13-fix.1"
     },
     "basePath": "/api/v1",
     "paths": {
@@ -18636,6 +18636,41 @@
                 }
             }
         },
+        "AdminExternalProfileResponse": {
+            "type": "object",
+            "required": [
+                "displayName",
+                "email",
+                "profileSyncedAt",
+                "provider",
+                "username"
+            ],
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "profileSyncedAt": {
+                    "type": "string",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": [
+                        "sub2api"
+                    ]
+                },
+                "remoteID": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "AdminPersonalProviderPageResponseDoc": {
             "type": "object",
             "required": [
@@ -18894,6 +18929,9 @@
                     "type": "string",
                     "x-nullable": true,
                     "x-omitempty": false
+                },
+                "externalProfile": {
+                    "$ref": "#/definitions/AdminExternalProfileResponse"
                 },
                 "id": {
                     "type": "integer"
@@ -19380,6 +19418,41 @@
                 }
             }
         },
+        "AuthExternalProfileResponse": {
+            "type": "object",
+            "required": [
+                "displayName",
+                "email",
+                "profileSyncedAt",
+                "provider",
+                "username"
+            ],
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "profileSyncedAt": {
+                    "type": "string",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": [
+                        "sub2api"
+                    ]
+                },
+                "remoteID": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "AuthUserIdentityProviderSummaryResponse": {
             "type": "object",
             "required": [
@@ -19480,7 +19553,7 @@
                     "x-omitempty": false
                 },
                 "externalProfile": {
-                    "$ref": "#/definitions/ExternalProfileResponse"
+                    "$ref": "#/definitions/AuthExternalProfileResponse"
                 },
                 "id": {
                     "type": "integer"
@@ -23779,32 +23852,6 @@
                     "type": "string"
                 },
                 "userUsername": {
-                    "type": "string"
-                }
-            }
-        },
-        "ExternalProfileResponse": {
-            "type": "object",
-            "required": [
-                "displayName",
-                "email",
-                "provider",
-                "username"
-            ],
-            "properties": {
-                "displayName": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string",
-                    "enum": [
-                        "sub2api"
-                    ]
-                },
-                "username": {
                     "type": "string"
                 }
             }

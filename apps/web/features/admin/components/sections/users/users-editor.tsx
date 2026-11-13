@@ -61,6 +61,7 @@ import {
 import type { AdminBillingMode, AdminBillingPlanDTO } from "@/features/admin/api/billing-types";
 import type { BillingDisplayOptions } from "@/entities/billing";
 import { formatBillingBalance, resolveDetailValue } from "@/features/admin/utils/user-display";
+import { resolveUserPresentation } from "@/shared/auth/external-profile";
 import { isAdminUserRole, isAdminUserStatus } from "@/features/admin/model/admin-unions";
 import { isString } from "@/shared/lib/type-guards";
 
@@ -409,6 +410,8 @@ export function EditUserSheet({
     },
     [t],
   );
+  const userPresentation = editDialogTarget ? resolveUserPresentation(editDialogTarget) : null;
+  const externalProfile = userPresentation?.source === "sub2api" ? userPresentation : null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -435,8 +438,14 @@ export function EditUserSheet({
             </Button>
             <div className="min-w-0 text-xs truncate">
               <p className="flex items-center gap-2 font-semibold">
-                {resolveDetailValue(editPayload.displayName)}
-                <span className="truncate text-xs font-normal text-muted-foreground">@{resolveDetailValue(editDialogTarget?.username)}</span>
+                {externalProfile
+                  ? externalProfile.name || t("externalProfile.pendingSync")
+                  : resolveDetailValue(editPayload.displayName)}
+                {externalProfile ? (
+                  <Badge variant="secondary">sub2api</Badge>
+                ) : (
+                  <span className="truncate text-xs font-normal text-muted-foreground">@{resolveDetailValue(editDialogTarget?.username)}</span>
+                )}
               </p>
 
               <div className="flex items-center gap-2 mt-1">
@@ -456,10 +465,37 @@ export function EditUserSheet({
           </div>
 
           <SheetSection title={t("editor.profileSection")} divided={false}>
+            {externalProfile ? (
+              <div className="space-y-3 rounded-md border bg-muted/20 p-3" data-external-profile="sub2api">
+                <div className="flex items-start gap-2">
+                  <Badge variant="secondary" className="mt-0.5">sub2api</Badge>
+                  <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+                    <p>{t("externalProfile.readOnly")}</p>
+                    {externalProfile.pendingSync ? <p>{t("externalProfile.pendingDescription")}</p> : null}
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ReadOnlyField label={t("externalProfile.username")} value={externalProfile.username || t("externalProfile.pendingSync")} />
+                  <ReadOnlyField label={t("externalProfile.email")} value={externalProfile.email || t("externalProfile.pendingSync")} />
+                  <ReadOnlyField label={t("externalProfile.displayName")} value={externalProfile.displayName || t("externalProfile.pendingSync")} />
+                  {externalProfile.remoteID !== undefined ? (
+                    <ReadOnlyField label={t("externalProfile.remoteID")} value={externalProfile.remoteID} mono />
+                  ) : null}
+                  {externalProfile.profileSyncedAt ? (
+                    <ReadOnlyField label={t("externalProfile.syncedAt")} value={formatSheetDateTime(externalProfile.profileSyncedAt, locale)} />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-2">
-              <ReadOnlyField label={t("editor.username")} value={resolveDetailValue(editDialogTarget?.username)} />
+              <ReadOnlyField
+                label={externalProfile ? t("editor.localUsername") : t("editor.username")}
+                value={resolveDetailValue(editDialogTarget?.username)}
+              />
               <div className="space-y-1">
-                <Label className="text-xs font-normal text-muted-foreground">{t("editor.displayName")}</Label>
+                <Label className="text-xs font-normal text-muted-foreground">
+                  {externalProfile ? t("editor.localDisplayName") : t("editor.displayName")}
+                </Label>
                 <Input
                   value={editPayload.displayName}
                   placeholder={t("editor.userDisplayNamePlaceholder")}
@@ -469,7 +505,9 @@ export function EditUserSheet({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-normal text-muted-foreground">{t("editor.email")}</Label>
+                <Label className="text-xs font-normal text-muted-foreground">
+                  {externalProfile ? t("editor.localEmail") : t("editor.email")}
+                </Label>
                 <Input
                   value={editPayload.email}
                   placeholder={t("editor.userEmailPlaceholder")}

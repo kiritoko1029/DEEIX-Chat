@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Database, Globe, Plus, Settings, ShieldCheck, ShieldX, Trash2, Upload, UserCheck, WalletCards } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -43,6 +44,7 @@ import {
 import { useVirtualTableRows, VirtualTablePaddingRow } from "@/components/ui/virtual-table";
 import { resolveAvatarImageSrc } from "@/shared/lib/avatar";
 import { useAuthSession } from "@/shared/auth/auth-session-context";
+import { resolveUserPresentation } from "@/shared/auth/external-profile";
 import { useDialogSnapshot } from "@/shared/hooks/use-dialog-snapshot";
 import { TimeZoneSelect } from "@/shared/components/time-zone-select";
 import type { AdminUserDTO, AdminUserRole, AdminUserStatus } from "@/features/admin/api/admin-types";
@@ -252,7 +254,13 @@ const UserTableRow = React.memo(function UserTableRow({
   const resolveUserStatusLabel = useUserStatusLabel();
   const resolveSubscriptionStatusLabel = useSubscriptionStatusLabel();
   const resolveBillingAccountStatusLabel = useBillingAccountStatusLabel();
-  const avatarAlt = item.displayName.trim() || item.username.trim() || item.publicID.trim() || t("fallbackUser");
+  const presentation = resolveUserPresentation(item);
+  const primaryName = presentation.source === "sub2api"
+    ? presentation.name || (presentation.remoteID !== undefined
+      ? t("externalProfile.accountFallback", { id: presentation.remoteID })
+      : t("externalProfile.pendingSync"))
+    : resolveValue(presentation.name);
+  const avatarAlt = presentation.name || presentation.username || primaryName || item.publicID.trim() || t("fallbackUser");
   const disabled = Boolean(pendingAction) || !canManage;
   const rowRoleOptions = React.useMemo(
     (): string[] => (roleOptions.some((role) => role === item.role) ? roleOptions : [item.role, ...roleOptions]),
@@ -260,7 +268,7 @@ const UserTableRow = React.memo(function UserTableRow({
   );
 
   return (
-    <TableRow>
+    <TableRow data-user-id={item.id} data-user-source={presentation.source}>
       <TableCell className="w-[44px] py-1.5 whitespace-nowrap text-center">
         <div className="flex h-7 items-center justify-center">
           <Checkbox
@@ -274,10 +282,10 @@ const UserTableRow = React.memo(function UserTableRow({
         <span className="flex h-7 items-center">{item.id}</span>
       </TableCell>
       <TableCell className="py-1.5">
-        <div className="flex h-7 items-center gap-3">
+        <div className="flex min-h-7 items-center gap-3">
           <button
             type="button"
-            className="rounded-full transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 rounded-full transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onOpenAvatar(item)}
             disabled={disabled}
             aria-label={t("table.editAvatarAria", { name: avatarAlt })}
@@ -289,11 +297,32 @@ const UserTableRow = React.memo(function UserTableRow({
               </AvatarFallback>
             </Avatar>
           </button>
-          <div className="min-w-0 max-w-[22rem] truncate whitespace-nowrap text-xs">
-            <span className="font-medium text-foreground">{resolveValue(item.displayName)}</span>
-            <span className="px-1.5 text-muted-foreground">/</span>
-            <span className="text-muted-foreground">@{resolveValue(item.username)}</span>
-          </div>
+          {presentation.source === "sub2api" ? (
+            <div
+              className="min-w-0 max-w-[22rem] space-y-0.5 whitespace-nowrap"
+              title={t("externalProfile.internalAccount", { id: item.id, username: item.username })}
+            >
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="truncate font-medium text-foreground">{primaryName}</span>
+                <Badge variant="secondary" className="px-1.5" title={t("externalProfile.readOnly")}>sub2api</Badge>
+                {presentation.pendingSync ? (
+                  <Badge variant="outline" className="px-1.5 text-muted-foreground">{t("externalProfile.pendingSync")}</Badge>
+                ) : null}
+              </div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                {presentation.email || t("externalProfile.pendingSync")}
+              </div>
+            </div>
+          ) : (
+            <div className="min-w-0 max-w-[22rem] space-y-0.5 whitespace-nowrap text-xs">
+              <div className="truncate">
+                <span className="font-medium text-foreground">{primaryName}</span>
+                <span className="px-1.5 text-muted-foreground">/</span>
+                <span className="text-muted-foreground">@{resolveValue(presentation.username)}</span>
+              </div>
+              {presentation.email ? <div className="truncate text-[11px] text-muted-foreground">{presentation.email}</div> : null}
+            </div>
+          )}
         </div>
       </TableCell>
       <TableCell className="py-1.5 whitespace-nowrap">
@@ -396,7 +425,7 @@ const UserTableRow = React.memo(function UserTableRow({
             className="text-muted-foreground shadow-none"
             onClick={() => onOpenEdit(item)}
             disabled={disabled}
-            aria-label={t("table.editUserAria", { username: item.username })}
+            aria-label={t("table.editUserAria", { username: primaryName })}
             title={t("table.editUser")}
           >
             {pendingAction === "edit" && actionUserID === item.id ? (
@@ -522,7 +551,7 @@ export function UsersPanel({
   const stableResetPasswordDraft = useDialogSnapshot(resetDialogTarget ? resetPasswordDraft : null) ?? "";
   const virtualRows = useVirtualTableRows(filteredItems, {
     enabled: filteredItems.length > 100,
-    estimateSize: 40,
+    estimateSize: 52,
   });
   const initialLoading = loading && filteredItems.length === 0;
   const showRows = filteredItems.length > 0;
@@ -855,7 +884,9 @@ export function UsersPanel({
         title={avatarDialog.mode === "edit" ? t("avatar.editTitle") : t("avatar.createTitle")}
         description={t("avatar.description")}
         previewSrc={avatarDialogPreviewSrc}
-        alt={avatarDialog.mode === "edit" ? avatarDialog.target.displayName || avatarDialog.target.username || t("avatar.userAvatar") : t("avatar.preview")}
+        alt={avatarDialog.mode === "edit"
+          ? resolveUserPresentation(avatarDialog.target).name || resolveUserPresentation(avatarDialog.target).username || t("avatar.userAvatar")
+          : t("avatar.preview")}
         fallback={
           avatarDialog.mode === "edit"
             ? resolveUserInitial(avatarDialog.target)

@@ -14,14 +14,16 @@ import type {
   PasswordResetStartResponse,
   PatchMeRequest,
   UpdateCurrentSessionLocationRequest,
-  ExternalProfileResponse,
+  AuthExternalProfileResponse,
   Sub2APIImportItemResponse,
   Sub2APIImportResponse,
 } from "@deeix/api-contract";
 
 export type UserIdentityProviderSummaryDTO = AuthUserIdentityProviderSummaryResponse;
 
-export type Sub2ApiExternalProfile = ExternalProfileResponse;
+export type Sub2ApiExternalProfile = Omit<AuthExternalProfileResponse, "profileSyncedAt"> & {
+  profileSyncedAt?: string | null;
+};
 export type Sub2ApiImportItem = Sub2APIImportItemResponse;
 export type Sub2ApiImportSummary = Sub2APIImportResponse;
 

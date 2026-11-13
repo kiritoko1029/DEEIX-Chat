@@ -28,6 +28,7 @@
 
 This branch adds trusted sub2api sign-in links, display-profile synchronization, and independent multi-Key model providers. Web/Docker releases use date versions such as `2026.11.12`; the Docker Hub target is `195658/deeix-chat`. Use this fork's image rather than an unchanged upstream image when enabling these features.
 
+- [v2026.11.13-fix.1: readable sub2api users and Shanghai defaults](<docs/releases/2026.11.13-fix.1.md>) — use `195658/deeix-chat:2026.11.13-fix.1`; this revision does not replace `latest`.
 - [v2026.11.13: sub2api email/password sign-in](<docs/releases/2026.11.13.md>) — opt in with `SUB2API_PASSWORD_LOGIN_ENABLED=true`; see the [setup guide](<deploy/SUB2API_PASSWORD.md>).
 - [sub2api setup and security boundaries](<deploy/SUB2API.md>)
 - [GitHub Actions / Docker Hub publishing](<deploy/RELEASING.md>)

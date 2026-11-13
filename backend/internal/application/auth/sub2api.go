@@ -115,7 +115,7 @@ func (s *Service) exchangeSub2API(ctx context.Context, userID int64, rawToken, r
 	}
 	now := time.Now()
 	localUser, err := s.sub2apiIdentities.ResolveSub2APIUser(ctx, instance, userID, repository.CreateWithCredentialInput{
-		User:       &domainuser.User{PublicID: conv.NormalizePublicID(uuid.NewString()), Username: "sub2api_" + conv.NormalizePublicID(uuid.NewString()), DisplayName: "sub2api 用户", Role: domainuser.RoleUser, Status: domainuser.StatusActive, Locale: "zh-CN", Timezone: "Etc/UTC", OnboardingCompletedAt: &now},
+		User:       &domainuser.User{PublicID: conv.NormalizePublicID(uuid.NewString()), Username: "sub2api_" + conv.NormalizePublicID(uuid.NewString()), DisplayName: "sub2api 用户", Role: domainuser.RoleUser, Status: domainuser.StatusActive, Locale: "zh-CN", Timezone: domainuser.DefaultNewUserTimezone, OnboardingCompletedAt: &now},
 		Credential: domainuser.Credential{PasswordEnabled: false, PasswordOrigin: domainuser.PasswordOriginSSOPlaceholder},
 	})
 	if err != nil {

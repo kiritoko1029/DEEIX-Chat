@@ -17,6 +17,11 @@ type Sub2APIProfileRepository interface {
 	SyncSub2APIProfile(context.Context, uint, string, int64, domainuser.ExternalProfile) error
 }
 
+// Sub2APIProfileBatchRepository reads saved display metadata for admin views.
+type Sub2APIProfileBatchRepository interface {
+	ListSub2APIProfilesByUserIDs(context.Context, []uint) (map[uint]domainuser.ExternalProfile, error)
+}
+
 // Sub2APIIdentityLookup reads an existing binding without provisioning an account.
 // Missing bindings return ErrNotFound; tombstones and collisions must fail closed.
 type Sub2APIIdentityLookup interface {

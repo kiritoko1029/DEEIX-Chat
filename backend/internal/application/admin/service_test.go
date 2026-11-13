@@ -481,6 +481,10 @@ func (s *adminUserServiceFake) ListUsers(context.Context, int, int, repository.U
 	return nil, 0, nil
 }
 
+func (s *adminUserServiceFake) ListSub2APIProfilesByUserIDs(context.Context, []uint) (map[uint]domainuser.ExternalProfile, error) {
+	return map[uint]domainuser.ExternalProfile{}, nil
+}
+
 func (s *adminUserServiceFake) ListIdentityProviders(context.Context, bool) ([]domainuser.IdentityProvider, error) {
 	return []domainuser.IdentityProvider{}, nil
 }

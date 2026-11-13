@@ -1,15 +1,31 @@
 import type { ProfileDraft } from "@/features/settings/types/settings";
-import type { UserDTO } from "@/shared/api/auth-types";
-import { normalizeTrimmedString } from "@/shared/lib/string";
+import type { PatchMePayload, UserDTO } from "@/shared/api/auth-types";
+import { normalizeTrimmedString } from "../../../shared/lib/string.ts";
 
-export function createDraftFromUser(user?: UserDTO | null): ProfileDraft {
+export function createDraftFromUser(user?: Partial<UserDTO> | null): ProfileDraft {
   return {
     avatarUrl: normalizeTrimmedString(user?.avatarURL),
     displayName: normalizeTrimmedString(user?.displayName),
-    timezone: normalizeTrimmedString(user?.timezone, "Etc/UTC"),
+    timezone: normalizeTrimmedString(user?.timezone, "Asia/Shanghai"),
     locale: normalizeTrimmedString(user?.locale, "en-US"),
     profilePreferences: normalizeTrimmedString(user?.profilePreferences),
   };
+}
+
+export function createProfileUpdatePayload(
+  user: Pick<UserDTO, "displayName" | "username" | "email" | "externalProfile"> | null | undefined,
+  draft: ProfileDraft,
+): PatchMePayload {
+  const payload: PatchMePayload = {
+    avatarURL: draft.avatarUrl,
+    timezone: draft.timezone,
+    locale: draft.locale,
+    profilePreferences: draft.profilePreferences,
+  };
+  if (user?.externalProfile?.provider !== "sub2api") {
+    payload.displayName = draft.displayName;
+  }
+  return payload;
 }
 
 export function isProfileDraftEqual(left: ProfileDraft, right: ProfileDraft): boolean {

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Sparkles, Upload } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -14,11 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ProfileDraft } from "@/features/settings/types/settings";
 import { DISPLAY_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH } from "@/shared/auth/account-policy";
 import type { UserDTO } from "@/shared/api/auth-types";
+import type { Sub2ApiUserPresentation } from "@/shared/auth/external-profile";
 import { SettingsSection } from "@/shared/components/settings-layout";
 import { TimeZoneSelect } from "@/shared/components/time-zone-select";
 
 export function GeneralProfileSection({
   viewer,
+  externalProfile,
   draft,
   loading,
   saving,
@@ -43,6 +46,7 @@ export function GeneralProfileSection({
   onSaveAvatarDialog,
 }: {
   viewer: UserDTO | null;
+  externalProfile: Sub2ApiUserPresentation | null;
   draft: ProfileDraft;
   loading: boolean;
   saving: boolean;
@@ -99,7 +103,10 @@ export function GeneralProfileSection({
                   disabled={loading || saving}
                 >
                   <Avatar className="size-9 bg-muted">
-                    <AvatarImage src={draftAvatarSrc || undefined} alt={draft.displayName || viewer?.username || t("generalPage.profile.avatarAlt")} />
+                    <AvatarImage
+                      src={draftAvatarSrc || undefined}
+                      alt={externalProfile?.name || draft.displayName || viewer?.username || t("generalPage.profile.avatarAlt")}
+                    />
                     <AvatarFallback className="bg-foreground text-sm font-medium text-background">
                       {viewerInitial}
                     </AvatarFallback>
@@ -108,31 +115,65 @@ export function GeneralProfileSection({
               </div>
             </Field>
 
-            <Field>
-              <FieldLabel>{t("generalPage.profile.username")}</FieldLabel>
-              <div className="space-y-1.5">
-                <Input
-                  value={usernameDraft}
-                  onChange={(event) => onUsernameDraftChange(event.target.value.toLowerCase())}
-                  readOnly={!canEditUsername}
-                  disabled={loading || saving || !canEditUsername}
-                  maxLength={USERNAME_MAX_LENGTH}
-                  placeholder={t("generalPage.profile.usernamePlaceholder")}
-                />
-              </div>
-            </Field>
-
-            <Field>
-              <FieldLabel>{t("generalPage.profile.displayName")}</FieldLabel>
-              <Input
-                value={draft.displayName}
-                onChange={(event) => onDraftChange((current) => ({ ...current, displayName: event.target.value }))}
-                placeholder={t("generalPage.profile.displayNamePlaceholder")}
-                disabled={loading || saving}
-                maxLength={DISPLAY_NAME_MAX_LENGTH}
-              />
-            </Field>
+            {externalProfile ? (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="settings-external-account">{t("generalPage.profile.externalAccount")}</FieldLabel>
+                  <Input
+                    id="settings-external-account"
+                    value={externalProfile.email || t("generalPage.profile.pendingSync")}
+                    readOnly
+                    disabled={loading || saving}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="settings-external-display-name">{t("generalPage.profile.externalDisplayName")}</FieldLabel>
+                  <Input
+                    id="settings-external-display-name"
+                    value={externalProfile.name || t("generalPage.profile.pendingSync")}
+                    readOnly
+                    disabled={loading || saving}
+                  />
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field>
+                  <FieldLabel>{t("generalPage.profile.username")}</FieldLabel>
+                  <div className="space-y-1.5">
+                    <Input
+                      value={usernameDraft}
+                      onChange={(event) => onUsernameDraftChange(event.target.value.toLowerCase())}
+                      readOnly={!canEditUsername}
+                      disabled={loading || saving || !canEditUsername}
+                      maxLength={USERNAME_MAX_LENGTH}
+                      placeholder={t("generalPage.profile.usernamePlaceholder")}
+                    />
+                  </div>
+                </Field>
+                <Field>
+                  <FieldLabel>{t("generalPage.profile.displayName")}</FieldLabel>
+                  <Input
+                    value={draft.displayName}
+                    onChange={(event) => onDraftChange((current) => ({ ...current, displayName: event.target.value }))}
+                    placeholder={t("generalPage.profile.displayNamePlaceholder")}
+                    disabled={loading || saving}
+                    maxLength={DISPLAY_NAME_MAX_LENGTH}
+                  />
+                </Field>
+              </>
+            )}
           </div>
+
+          {externalProfile ? (
+            <div className="flex items-start gap-2 rounded-md bg-muted/35 px-3 py-2" data-external-profile="sub2api">
+              <Badge variant="secondary" className="mt-0.5">sub2api</Badge>
+              <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+                <p>{t("generalPage.profile.externalDescription")}</p>
+                {externalProfile.pendingSync ? <p>{t("generalPage.profile.pendingSyncDescription")}</p> : null}
+              </div>
+            </div>
+          ) : null}
 
           <Field>
             <FieldLabel>{t("generalPage.profile.timezone")}</FieldLabel>
@@ -172,7 +213,7 @@ export function GeneralProfileSection({
               <Avatar className="size-16 bg-pure">
                 <AvatarImage
                   src={avatarDialogPreviewSrc || undefined}
-                  alt={draft.displayName || viewer?.username || t("generalPage.profile.avatarAlt")}
+                  alt={externalProfile?.name || draft.displayName || viewer?.username || t("generalPage.profile.avatarAlt")}
                 />
                 <AvatarFallback className="bg-foreground text-3xl font-medium text-background">
                   {viewerInitial}

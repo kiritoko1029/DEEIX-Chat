@@ -84,6 +84,23 @@ func TestSub2APIIdentityAtomicAndUnique(t *testing.T) {
 	if err != nil || other.ID == first {
 		t.Fatal("instances shared identity")
 	}
+	secondSubject, err := repo.ResolveSub2APIUser(ctx, "https://sub.example.com", 8, input(21))
+	if err != nil || secondSubject.ID == first || secondSubject.ID == other.ID {
+		t.Fatal("remote subjects shared identity", err)
+	}
+	sharedProfile := domain.ExternalProfile{Username: "same-name", Email: "same@example.com", DisplayName: "Same Name"}
+	for _, subject := range []struct {
+		userID   uint
+		remoteID int64
+	}{{first, 7}, {secondSubject.ID, 8}} {
+		if err := repo.SyncSub2APIProfile(ctx, subject.userID, "https://sub.example.com", subject.remoteID, sharedProfile); err != nil {
+			t.Fatal(err)
+		}
+		repeated, err := repo.ResolveSub2APIUser(ctx, "https://sub.example.com", subject.remoteID, input(22))
+		if err != nil || repeated.ID != subject.userID || repeated.Email != "" || repeated.EmailVerifiedAt != nil {
+			t.Fatal("same profile merged subjects or changed local email", err)
+		}
+	}
 	for _, tc := range []struct {
 		instance string
 		remote   int64
@@ -91,7 +108,8 @@ func TestSub2APIIdentityAtomicAndUnique(t *testing.T) {
 	}{
 		{"https://sub.example.com", 7, first},
 		{"https://other.example.com", 7, other.ID},
-		{"https://sub.example.com", 8, 0},
+		{"https://sub.example.com", 8, secondSubject.ID},
+		{"https://sub.example.com", 9, 0},
 	} {
 		got, err := repo.LookupSub2APIUser(ctx, tc.instance, tc.remote)
 		if tc.want == 0 {
@@ -154,8 +172,9 @@ func TestSub2APIProfileMigrationAndSubjectBoundUpdate(t *testing.T) {
 	if err := db.AutoMigrate(&models.Sub2APIIdentity{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.GetSub2APIProfile(ctx, user.ID); !errors.Is(err, repository.ErrNotFound) {
-		t.Fatal("legacy profile must be omitted before first sync", err)
+	legacyProfile, err := repo.GetSub2APIProfile(ctx, user.ID)
+	if err != nil || legacyProfile.Provider != "sub2api" || legacyProfile.RemoteID != 7 || legacyProfile.ProfileSyncedAt != nil || legacyProfile.Username != "" || legacyProfile.Email != "" || legacyProfile.DisplayName != "" {
+		t.Fatal("legacy binding must expose its subject with empty unsynced metadata", err)
 	}
 	profile := domain.ExternalProfile{Provider: "ignored", DisplayName: "远端昵称", Username: "remote", Email: "local@example.com"}
 	if err := repo.SyncSub2APIProfile(ctx, user.ID, "https://other.example.com", 7, profile); !errors.Is(err, repository.ErrNotFound) {

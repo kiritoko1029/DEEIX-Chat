@@ -2,6 +2,7 @@ import * as React from "react";
 
 import type { AdminUserDTO } from "@/features/admin/api/admin-types";
 import type { UserSortValue } from "@/features/admin/types/users";
+import { resolveUserPresentation } from "@/shared/auth/external-profile";
 
 type UseAdminUsersFiltersState = {
   roleFilter: string;
@@ -44,8 +45,13 @@ export function useAdminUsersFilters(items: AdminUserDTO[]): UseAdminUsersFilter
           return (lastActiveTimestamps.get(right.id) ?? 0) - (lastActiveTimestamps.get(left.id) ?? 0);
         case "updated_desc":
           return (updatedTimestamps.get(right.id) ?? 0) - (updatedTimestamps.get(left.id) ?? 0);
-        case "display_name_asc":
-          return (left.displayName || left.username).localeCompare(right.displayName || right.username, "zh-CN");
+        case "display_name_asc": {
+          const leftPresentation = resolveUserPresentation(left);
+          const rightPresentation = resolveUserPresentation(right);
+          const leftName = leftPresentation.name || leftPresentation.username || leftPresentation.email;
+          const rightName = rightPresentation.name || rightPresentation.username || rightPresentation.email;
+          return leftName.localeCompare(rightName, "zh-CN");
+        }
         case "id_desc":
         default:
           return right.id - left.id;

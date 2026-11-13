@@ -93,6 +93,15 @@ export interface AdminErrorDoc {
   requestId?: string;
 }
 
+export interface AdminExternalProfileResponse {
+  displayName: string;
+  email: string;
+  profileSyncedAt: string | null;
+  provider: "sub2api";
+  remoteID?: number;
+  username: string;
+}
+
 export interface AdminPersonalProviderPageResponseDoc {
   data: {
     results: AdminPersonalProviderResponse[];
@@ -159,6 +168,7 @@ export interface AdminUserResponse {
   displayName: string;
   email: string;
   emailVerifiedAt: string | null;
+  externalProfile?: AdminExternalProfileResponse;
   id: number;
   identityProviders: AdminUserIdentityProviderSummaryResponse[];
   lastActiveAt: string | null;
@@ -307,6 +317,15 @@ export interface AuthEventResponse {
   username: string;
 }
 
+export interface AuthExternalProfileResponse {
+  displayName: string;
+  email: string;
+  profileSyncedAt: string | null;
+  provider: "sub2api";
+  remoteID?: number;
+  username: string;
+}
+
 export interface AuthUserIdentityProviderSummaryResponse {
   id: number;
   logoURL: string;
@@ -324,7 +343,7 @@ export interface AuthUserResponse {
   emailBootstrapUsedAt: string | null;
   emailSource: string;
   emailVerifiedAt: string | null;
-  externalProfile?: ExternalProfileResponse;
+  externalProfile?: AuthExternalProfileResponse;
   id: number;
   identityProviders: AuthUserIdentityProviderSummaryResponse[];
   initialSecurityRequired: boolean;
@@ -1711,13 +1730,6 @@ export interface ErrorLogResponse {
   userID: number;
   userLabel: string;
   userUsername: string;
-}
-
-export interface ExternalProfileResponse {
-  displayName: string;
-  email: string;
-  provider: "sub2api";
-  username: string;
 }
 
 export interface FeaturePolicyResponse {

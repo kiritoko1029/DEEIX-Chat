@@ -1169,7 +1169,7 @@ func (s *Service) resolveProviderUser(ctx context.Context, input resolveProvider
 		EmailSource:     emailSource,
 		Role:            textutil.FirstNonEmpty(input.Provider.DefaultRole, domainuser.RoleUser),
 		Status:          domainuser.StatusActive,
-		Timezone:        "Etc/UTC",
+		Timezone:        domainuser.DefaultNewUserTimezone,
 		Locale:          "en-US",
 		EmailVerifiedAt: emailVerifiedAt,
 	}

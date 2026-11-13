@@ -318,7 +318,17 @@ func (r *Repo) ListUsers(ctx context.Context, offset int, limit int, filter repo
 	if keyword := strings.TrimSpace(filter.Query); keyword != "" {
 		like := "%" + userListSearchEscaper.Replace(strings.ToLower(keyword)) + "%"
 		query = query.Where(
-			"LOWER(username) LIKE ? ESCAPE '\\' OR LOWER(display_name) LIKE ? ESCAPE '\\' OR LOWER(email) LIKE ? ESCAPE '\\' OR LOWER(public_id) LIKE ? ESCAPE '\\'",
+			`LOWER(username) LIKE ? ESCAPE '\' OR LOWER(display_name) LIKE ? ESCAPE '\' OR LOWER(email) LIKE ? ESCAPE '\' OR LOWER(public_id) LIKE ? ESCAPE '\' OR EXISTS (
+				SELECT 1 FROM identity_sub2api_identities external_profile
+				WHERE external_profile.user_id = identity_users.id
+					AND external_profile.profile_synced_at IS NOT NULL
+					AND (LOWER(external_profile.username) LIKE ? ESCAPE '\'
+						OR LOWER(external_profile.email) LIKE ? ESCAPE '\'
+						OR LOWER(external_profile.display_name) LIKE ? ESCAPE '\')
+			)`,
+			like,
+			like,
+			like,
 			like,
 			like,
 			like,

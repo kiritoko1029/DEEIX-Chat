@@ -65,10 +65,38 @@ func (r *Repo) ResolveSub2APIUser(ctx context.Context, instance string, remoteID
 
 func (r *Repo) GetSub2APIProfile(ctx context.Context, userID uint) (*domainuser.ExternalProfile, error) {
 	var identity models.Sub2APIIdentity
-	if err := r.db.WithContext(ctx).Where("user_id = ? AND profile_synced_at IS NOT NULL", userID).First(&identity).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&identity).Error; err != nil {
 		return nil, translateError(err)
 	}
-	return &domainuser.ExternalProfile{Provider: "sub2api", DisplayName: identity.DisplayName, Username: identity.Username, Email: identity.Email}, nil
+	profile := sub2APIExternalProfile(identity)
+	return &profile, nil
+}
+
+func (r *Repo) ListSub2APIProfilesByUserIDs(ctx context.Context, userIDs []uint) (map[uint]domainuser.ExternalProfile, error) {
+	profiles := make(map[uint]domainuser.ExternalProfile, len(userIDs))
+	if len(userIDs) == 0 {
+		return profiles, nil
+	}
+	var identities []models.Sub2APIIdentity
+	if err := r.db.WithContext(ctx).Where("user_id IN ?", userIDs).Find(&identities).Error; err != nil {
+		return nil, translateError(err)
+	}
+	for _, identity := range identities {
+		profiles[identity.UserID] = sub2APIExternalProfile(identity)
+	}
+	return profiles, nil
+}
+
+func sub2APIExternalProfile(identity models.Sub2APIIdentity) domainuser.ExternalProfile {
+	profile := domainuser.ExternalProfile{
+		Provider: "sub2api", RemoteID: identity.RemoteID, ProfileSyncedAt: identity.ProfileSyncedAt,
+	}
+	if identity.ProfileSyncedAt != nil {
+		profile.DisplayName = identity.DisplayName
+		profile.Username = identity.Username
+		profile.Email = identity.Email
+	}
+	return profile
 }
 
 func (r *Repo) SyncSub2APIProfile(ctx context.Context, userID uint, instance string, remoteID int64, profile domainuser.ExternalProfile) error {

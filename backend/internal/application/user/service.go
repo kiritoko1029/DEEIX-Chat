@@ -160,6 +160,15 @@ func (s *Service) ListUsers(ctx context.Context, page int, pageSize int, filter 
 	return s.repo.ListUsers(ctx, offset, limit, filter)
 }
 
+// ListSub2APIProfilesByUserIDs 批量读取绑定用户的来源展示资料。
+func (s *Service) ListSub2APIProfilesByUserIDs(ctx context.Context, userIDs []uint) (map[uint]domainuser.ExternalProfile, error) {
+	profiles, ok := s.repo.(repository.Sub2APIProfileBatchRepository)
+	if !ok || len(userIDs) == 0 {
+		return map[uint]domainuser.ExternalProfile{}, nil
+	}
+	return profiles.ListSub2APIProfilesByUserIDs(ctx, userIDs)
+}
+
 // ListIdentityProviders 查询身份源配置列表。
 func (s *Service) ListIdentityProviders(ctx context.Context, includeDisabled bool) ([]domainuser.IdentityProvider, error) {
 	return s.repo.ListIdentityProviders(ctx, includeDisabled)
@@ -254,7 +263,7 @@ func (s *Service) CreateUser(ctx context.Context, input CreateUserInput) (*domai
 
 	normalizedTimezone := strings.TrimSpace(input.Timezone)
 	if normalizedTimezone == "" {
-		normalizedTimezone = "Etc/UTC"
+		normalizedTimezone = domainuser.DefaultNewUserTimezone
 	}
 	if _, err = time.LoadLocation(normalizedTimezone); err != nil {
 		return nil, ErrInvalidTimeZone

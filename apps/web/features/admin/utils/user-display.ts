@@ -1,5 +1,6 @@
 import type { AdminUserDTO } from "@/features/admin/api/admin-types";
 import { formatBillingDisplayBalanceFromUSD, type BillingDisplayOptions } from "@/entities/billing";
+import { resolveUserPresentation } from "@/shared/auth/external-profile";
 
 const USER_STATUS_LABELS: Record<string, string> = {
   pending_activation: "Pending activation",
@@ -117,7 +118,8 @@ export function resolveBillingAccountStatusLabel(value: string | null | undefine
 }
 
 export function resolveUserInitial(user: AdminUserDTO): string {
-  const source = user.displayName.trim() || user.username.trim() || user.publicID.trim() || String(user.id);
+  const presentation = resolveUserPresentation(user);
+  const source = presentation.name || presentation.username || (presentation.source === "sub2api" ? "sub2api" : "") || user.publicID.trim() || String(user.id);
   return source.charAt(0).toUpperCase();
 }
 

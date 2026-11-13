@@ -161,6 +161,10 @@ func (s *handlerUserServiceFake) ListUsers(context.Context, int, int, repository
 	return nil, 0, nil
 }
 
+func (s *handlerUserServiceFake) ListSub2APIProfilesByUserIDs(context.Context, []uint) (map[uint]domainuser.ExternalProfile, error) {
+	return map[uint]domainuser.ExternalProfile{}, nil
+}
+
 func (s *handlerUserServiceFake) ListIdentityProviders(context.Context, bool) ([]domainuser.IdentityProvider, error) {
 	return []domainuser.IdentityProvider{}, nil
 }

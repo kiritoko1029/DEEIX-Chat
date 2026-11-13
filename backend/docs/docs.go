@@ -18643,6 +18643,41 @@ const docTemplate = `{
                 }
             }
         },
+        "AdminExternalProfileResponse": {
+            "type": "object",
+            "required": [
+                "displayName",
+                "email",
+                "profileSyncedAt",
+                "provider",
+                "username"
+            ],
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "profileSyncedAt": {
+                    "type": "string",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": [
+                        "sub2api"
+                    ]
+                },
+                "remoteID": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "AdminPersonalProviderPageResponseDoc": {
             "type": "object",
             "required": [
@@ -18901,6 +18936,9 @@ const docTemplate = `{
                     "type": "string",
                     "x-nullable": true,
                     "x-omitempty": false
+                },
+                "externalProfile": {
+                    "$ref": "#/definitions/AdminExternalProfileResponse"
                 },
                 "id": {
                     "type": "integer"
@@ -19387,6 +19425,41 @@ const docTemplate = `{
                 }
             }
         },
+        "AuthExternalProfileResponse": {
+            "type": "object",
+            "required": [
+                "displayName",
+                "email",
+                "profileSyncedAt",
+                "provider",
+                "username"
+            ],
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "profileSyncedAt": {
+                    "type": "string",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": [
+                        "sub2api"
+                    ]
+                },
+                "remoteID": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "AuthUserIdentityProviderSummaryResponse": {
             "type": "object",
             "required": [
@@ -19487,7 +19560,7 @@ const docTemplate = `{
                     "x-omitempty": false
                 },
                 "externalProfile": {
-                    "$ref": "#/definitions/ExternalProfileResponse"
+                    "$ref": "#/definitions/AuthExternalProfileResponse"
                 },
                 "id": {
                     "type": "integer"
@@ -23786,32 +23859,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "userUsername": {
-                    "type": "string"
-                }
-            }
-        },
-        "ExternalProfileResponse": {
-            "type": "object",
-            "required": [
-                "displayName",
-                "email",
-                "provider",
-                "username"
-            ],
-            "properties": {
-                "displayName": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string",
-                    "enum": [
-                        "sub2api"
-                    ]
-                },
-                "username": {
                     "type": "string"
                 }
             }
@@ -35580,7 +35627,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "2026.11.13",
+	Version:          "2026.11.13-fix.1",
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

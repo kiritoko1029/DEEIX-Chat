@@ -26,6 +26,7 @@ import (
 )
 
 type userService interface {
+	ListSub2APIProfilesByUserIDs(context.Context, []uint) (map[uint]domainuser.ExternalProfile, error)
 	ListUsers(ctx context.Context, page int, pageSize int, filter repository.UserListFilter) ([]domainuser.User, int64, error)
 	ListIdentityProviders(ctx context.Context, includeDisabled bool) ([]domainuser.IdentityProvider, error)
 	ListUserIdentitiesByUserIDs(ctx context.Context, userIDs []uint) (map[uint][]domainuser.UserIdentity, error)
@@ -385,11 +386,11 @@ func (s *Service) BuildUserViews(ctx context.Context, items []domainuser.User) (
 }
 
 func (s *Service) completeUserView(ctx context.Context, view userview.UserView) (userview.UserView, error) {
-	views, err := s.applyIdentityProviderViews(ctx, []userview.UserView{view})
+	views, err := s.completeUserViews(ctx, []userview.UserView{view})
 	if err != nil {
 		return userview.UserView{}, err
 	}
-	return s.applyLastActiveView(ctx, views[0])
+	return views[0], nil
 }
 
 func (s *Service) completeUserViews(ctx context.Context, views []userview.UserView) ([]userview.UserView, error) {
@@ -397,18 +398,20 @@ func (s *Service) completeUserViews(ctx context.Context, views []userview.UserVi
 	if err != nil {
 		return nil, err
 	}
-	return s.applyLastActiveViews(ctx, views)
-}
-
-func (s *Service) applyLastActiveView(ctx context.Context, view userview.UserView) (userview.UserView, error) {
-	activities, err := s.userService.ListLatestSessionActivityByUserIDs(ctx, []uint{view.ID})
+	userIDs := make([]uint, 0, len(views))
+	for _, view := range views {
+		userIDs = append(userIDs, view.ID)
+	}
+	profiles, err := s.userService.ListSub2APIProfilesByUserIDs(ctx, userIDs)
 	if err != nil {
-		return userview.UserView{}, err
+		return nil, err
 	}
-	if value, ok := activities[view.ID]; ok {
-		return userview.WithLastActiveAt(view, &value), nil
+	for index, view := range views {
+		if profile, ok := profiles[view.ID]; ok {
+			views[index].ExternalProfile = &profile
+		}
 	}
-	return view, nil
+	return s.applyLastActiveViews(ctx, views)
 }
 
 func userViewFromMode(

@@ -3,7 +3,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import type { ProfileDraft } from "@/features/settings/types/settings";
-import { createDraftFromUser, isProfileDraftEqual } from "@/features/settings/utils/profile-settings";
+import { createDraftFromUser, createProfileUpdatePayload, isProfileDraftEqual } from "@/features/settings/utils/profile-settings";
 import { resolveLocalizedErrorMessage } from "@/i18n/resolve-error-message";
 import { patchMe, patchUsername } from "@/shared/api/auth";
 import type { UserDTO } from "@/shared/api/auth-types";
@@ -11,6 +11,7 @@ import { uploadFile } from "@/shared/api/file";
 import { ApiError } from "@/shared/api/http-client";
 import { isDisplayNameLengthValid, isUsernamePolicyValid } from "@/shared/auth/account-policy";
 import { useAuthSession } from "@/shared/auth/auth-session-context";
+import { mergeUserResponseProfile, resolveUserPresentation } from "@/shared/auth/external-profile";
 import { dispatchUserProfileUpdated } from "@/shared/auth/user-profile-events";
 import {
   createFileAvatarRef,
@@ -89,18 +90,20 @@ export function useSettingsGeneralProfile() {
     };
   }, [avatarUploadPreview]);
 
+  const presentation = React.useMemo(() => (viewer ? resolveUserPresentation(viewer) : null), [viewer]);
+  const externalProfile = presentation?.source === "sub2api" ? presentation : null;
   const viewerInitial = React.useMemo(() => {
-    const source = draft.displayName || viewer?.username || "?";
+    const source = externalProfile?.name || (externalProfile ? "sub2api" : draft.displayName || viewer?.username || "?");
     return source.trim().charAt(0).toUpperCase() || "?";
-  }, [draft.displayName, viewer?.username]);
+  }, [draft.displayName, externalProfile, viewer?.username]);
 
   const avatarSource = React.useMemo(
     () => ({
       publicID: viewer?.publicID,
-      username: viewer?.username,
-      displayName: draft.displayName || viewer?.displayName,
+      username: externalProfile?.username || viewer?.username,
+      displayName: externalProfile?.name || draft.displayName || viewer?.displayName,
     }),
-    [draft.displayName, viewer?.displayName, viewer?.publicID, viewer?.username],
+    [draft.displayName, externalProfile, viewer?.displayName, viewer?.publicID, viewer?.username],
   );
   const resolveAvatarPreviewSrc = React.useCallback(
     (value: string) => {
@@ -121,17 +124,17 @@ export function useSettingsGeneralProfile() {
     [avatarDialogValue, resolveAvatarPreviewSrc],
   );
   const hasProfileEdits = !isProfileDraftEqual(draft, initialDraft);
-  const canEditUsername = Boolean(viewer && !viewer.usernameChangedAt);
+  const canEditUsername = Boolean(viewer && !externalProfile && !viewer.usernameChangedAt);
   const normalizedUsernameDraft = usernameDraft.trim().toLowerCase();
   const hasUsernameEdit = canEditUsername && normalizedUsernameDraft !== "" && normalizedUsernameDraft !== viewer?.username;
   const hasEdits = hasProfileEdits || hasUsernameEdit;
 
   React.useEffect(() => {
-    if (viewer?.initialUsernameRequired && !initialUsernameToastShownRef.current) {
+    if (!externalProfile && viewer?.initialUsernameRequired && !initialUsernameToastShownRef.current) {
       initialUsernameToastShownRef.current = true;
       toast.info(t("generalPage.toast.initialUsernameRequired"));
     }
-  }, [t, viewer?.initialUsernameRequired]);
+  }, [externalProfile, t, viewer?.initialUsernameRequired]);
 
   const handleSave = React.useCallback(async () => {
     if (saving || !hasEdits) {
@@ -145,7 +148,7 @@ export function useSettingsGeneralProfile() {
         });
         return;
       }
-      if (hasProfileEdits && !isDisplayNameLengthValid(draft.displayName)) {
+      if (hasProfileEdits && !externalProfile && !isDisplayNameLengthValid(draft.displayName)) {
         toast.error(t("generalPage.toast.saveProfileFailed"), {
           description: t("generalPage.profile.displayNameInvalid"),
         });
@@ -171,13 +174,10 @@ export function useSettingsGeneralProfile() {
       }
 
       if (hasProfileEdits) {
-        nextViewer = await patchMe(accessToken, {
-          avatarURL: draft.avatarUrl,
-          displayName: draft.displayName,
-          timezone: draft.timezone,
-          locale: draft.locale,
-          profilePreferences: draft.profilePreferences,
-        });
+        nextViewer = await patchMe(accessToken, createProfileUpdatePayload(viewer, draft));
+      }
+      if (nextViewer && viewer) {
+        nextViewer = mergeUserResponseProfile(viewer, nextViewer);
       }
 
       if (!nextViewer) {
@@ -209,7 +209,7 @@ export function useSettingsGeneralProfile() {
     } finally {
       setSaving(false);
     }
-  }, [accessToken, draft, hasEdits, hasProfileEdits, hasUsernameEdit, normalizedUsernameDraft, saving, t, viewer]);
+  }, [accessToken, draft, externalProfile, hasEdits, hasProfileEdits, hasUsernameEdit, normalizedUsernameDraft, saving, t, viewer]);
 
   const handleDiscard = React.useCallback(() => {
     setDraft(initialDraft);
@@ -241,7 +241,8 @@ export function useSettingsGeneralProfile() {
 
     try {
       setSaving(true);
-      const nextViewer = await patchMe(accessToken, { avatarURL: nextAvatarURL });
+      const savedViewer = await patchMe(accessToken, { avatarURL: nextAvatarURL });
+      const nextViewer = viewer ? mergeUserResponseProfile(viewer, savedViewer) : savedViewer;
       const nextInitialDraft = createDraftFromUser(nextViewer);
       setViewer(nextViewer);
       setDraft((current) => ({ ...current, avatarUrl: nextInitialDraft.avatarUrl }));
@@ -263,7 +264,7 @@ export function useSettingsGeneralProfile() {
     } finally {
       setSaving(false);
     }
-  }, [accessToken, avatarDialogValue, avatarUploading, initialDraft.avatarUrl, saving, t]);
+  }, [accessToken, avatarDialogValue, avatarUploading, initialDraft.avatarUrl, saving, t, viewer]);
 
   const handleCycleGeneratedAvatar = React.useCallback(() => {
     setAvatarDialogValue(createGeneratedGithubAvatarRef(generateAvatarVariant()));
@@ -305,6 +306,7 @@ export function useSettingsGeneralProfile() {
 
   return {
     viewer,
+    externalProfile,
     draft,
     setDraft,
     loading,

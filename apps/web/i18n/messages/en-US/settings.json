@@ -37,6 +37,11 @@
       "displayName": "Display name",
       "displayNamePlaceholder": "Name shown in the interface",
       "displayNameInvalid": "Display name must be 3-16 characters.",
+      "externalAccount": "sub2api account (source email)",
+      "externalDisplayName": "sub2api display name",
+      "pendingSync": "Pending sync",
+      "externalDescription": "The username and source email are synced from sub2api and read-only. The source email is not a local security email. Avatar, timezone, and conversation preferences remain editable.",
+      "pendingSyncDescription": "Some source fields have not synced and are marked as pending; this does not mean synchronization has completed.",
       "timezone": "Timezone",
       "conversationPreferences": "Conversation preferences",
       "conversationPreferencesPlaceholder": "Preferred style, language habits, output format, and common workflows."

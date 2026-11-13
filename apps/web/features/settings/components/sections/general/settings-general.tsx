@@ -34,6 +34,7 @@ export function SettingsGeneral() {
   const { preset, resolvedTheme, setPreset, setTheme, theme } = useTheme();
   const {
     viewer,
+    externalProfile,
     draft,
     setDraft,
     loading,
@@ -163,6 +164,7 @@ export function SettingsGeneral() {
     <SettingsPage>
       <GeneralProfileSection
         viewer={viewer}
+        externalProfile={externalProfile}
         draft={draft}
         loading={loading}
         saving={saving}

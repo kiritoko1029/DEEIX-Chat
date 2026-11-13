@@ -952,10 +952,12 @@ func toUpdateCurrentSessionLocationInput(req UpdateCurrentSessionLocationRequest
 
 // ExternalProfileResponse is display-only; it never represents a verified local email.
 type ExternalProfileResponse struct {
-	Provider    string `json:"provider" enums:"sub2api"`
-	DisplayName string `json:"displayName"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
+	Provider        string     `json:"provider" enums:"sub2api"`
+	DisplayName     string     `json:"displayName"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	RemoteID        int64      `json:"remoteID,omitempty"`
+	ProfileSyncedAt *time.Time `json:"profileSyncedAt" extensions:"x-nullable,!x-omitempty"`
 }
 type Sub2APIImportResponse struct {
 	Total    int                         `json:"total"`
@@ -979,7 +981,10 @@ func toExternalProfileResponse(profile *domainuser.ExternalProfile) *ExternalPro
 	if profile == nil {
 		return nil
 	}
-	return &ExternalProfileResponse{Provider: profile.Provider, DisplayName: profile.DisplayName, Username: profile.Username, Email: profile.Email}
+	return &ExternalProfileResponse{
+		Provider: profile.Provider, DisplayName: profile.DisplayName, Username: profile.Username, Email: profile.Email,
+		RemoteID: profile.RemoteID, ProfileSyncedAt: profile.ProfileSyncedAt,
+	}
 }
 func toSub2APIImportResponse(summary *appauth.Sub2APIImportSummary) *Sub2APIImportResponse {
 	if summary == nil {

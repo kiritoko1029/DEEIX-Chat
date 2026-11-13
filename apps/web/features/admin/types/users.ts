@@ -1,5 +1,5 @@
 import type { AdminUserDTO, AdminUserRole, AdminUserStatus } from "@/features/admin/api/admin-types";
-import { isOneOf } from "@/shared/lib/type-guards";
+import { isOneOf } from "../../../shared/lib/type-guards.ts";
 
 export const USER_STATUS_OPTIONS: AdminUserStatus[] = [
   "pending_activation",
@@ -86,7 +86,7 @@ export const DEFAULT_CREATE_USER_PAYLOAD: CreateUserPayload = {
   displayName: "",
   password: "",
   email: "",
-  timezone: "Etc/UTC",
+  timezone: "Asia/Shanghai",
   locale: "en-US",
   subscriptionTier: "free",
   subscriptionExpiresAt: "",
