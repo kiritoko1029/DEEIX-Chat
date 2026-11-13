@@ -150,7 +150,39 @@
       "confirm": "Confirm and continue",
       "cancel": "Back to normal sign-in"
     },
+    "passwordLogin": {
+      "title": "Sign in with sub2api",
+      "description": "Use your sub2api email and password. This signs in to the Chat account mapped to that same remote identity; no Chat password is created or synchronized.",
+      "email": "sub2api email",
+      "emailPlaceholder": "{{TEST_EMAIL_1}}",
+      "password": "sub2api password",
+      "signIn": "Sign in with sub2api",
+      "signingIn": "Signing in with sub2api",
+      "remoteTwoFactorTitle": "sub2api two-factor verification",
+      "remoteTwoFactorDescription": "Enter the 6-digit TOTP code from sub2api for {email}. This is separate from Chat two-factor verification.",
+      "remoteTwoFactorCode": "sub2api 6-digit code",
+      "remoteTwoFactorPlaceholder": "123456",
+      "verifying": "Verifying with sub2api",
+      "verifyRemote": "Verify sub2api code",
+      "cancel": "Cancel sub2api sign-in",
+      "boundary": "Web browser only. Remote and Chat passwords stay independent, and sub2api administrator status does not grant Chat administrator access.",
+      "openSub2Api": "Manage or sign in at sub2api",
+      "errors": {
+        "captcha-unavailable": "sub2api verification cannot run on this page. The hostname may not be authorized, or the verification script failed or timed out. Continue at sub2api instead.",
+        "disabled": "sub2api email sign-in is not enabled for this deployment. Use Chat sign-in or continue at sub2api.",
+        "unavailable": "sub2api email sign-in is currently unavailable. Its configuration or verification method may be unsupported. Continue at sub2api.",
+        "invalid-request": "The sub2api sign-in request was not valid. Check the email and start again.",
+        "invalid-credentials": "sub2api did not accept this email and password. Enter them again; nothing was retried automatically.",
+        "captcha-failed": "sub2api verification failed. Complete a new verification before signing in again.",
+        "remote-two-factor-invalid": "The sub2api code was not accepted. Enter a new 6-digit code before the original sign-in expires.",
+        "flow-expired": "This sub2api sign-in expired. Start again with your email and password.",
+        "flow-busy": "This sub2api sign-in is already processing another request. Start again if it does not complete.",
+        "rate-limited": "Too many sub2api sign-in attempts. Wait and try again later."
+      }
+    },
     "backToLogin": "Back to normal sign-in"
   },
-  "registerInBrowser": "Register in browser"
+  "registerInBrowser": "Register in browser",
+  "sub2apiLoginMode": "Use sub2api email sign-in",
+  "localLoginMode": "Use a Chat local account / administrator"
 }

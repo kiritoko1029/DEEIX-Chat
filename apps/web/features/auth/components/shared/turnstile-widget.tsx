@@ -26,37 +26,70 @@ declare global {
   }
 }
 
+export type TurnstileWidgetStatus = "loading" | "ready" | "verified" | "unavailable";
+
 type TurnstileWidgetProps = {
   siteKey: string;
   resetSignal: number;
   onTokenChange: (token: string) => void;
+  onStatusChange?: (status: TurnstileWidgetStatus) => void;
+  initializationTimeoutMs?: number;
 };
 
-export function TurnstileWidget({ siteKey, resetSignal, onTokenChange }: TurnstileWidgetProps) {
+export function TurnstileWidget({ siteKey, resetSignal, onTokenChange, onStatusChange, initializationTimeoutMs = 15_000 }: TurnstileWidgetProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const widgetIDRef = React.useRef<string | null>(null);
   const onTokenChangeRef = React.useRef(onTokenChange);
+  const onStatusChangeRef = React.useRef(onStatusChange);
   const lastResetSignalRef = React.useRef(resetSignal);
   const [scriptReady, setScriptReady] = React.useState(() => typeof window !== "undefined" && Boolean(window.turnstile));
+  const [scriptFailed, setScriptFailed] = React.useState(false);
 
   React.useEffect(() => {
     onTokenChangeRef.current = onTokenChange;
-  }, [onTokenChange]);
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange, onTokenChange]);
+
+  React.useEffect(() => {
+    if (!onStatusChange || scriptReady || scriptFailed) return undefined;
+    onStatusChangeRef.current?.("loading");
+    const timer = window.setTimeout(() => setScriptFailed(true), initializationTimeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [initializationTimeoutMs, onStatusChange, scriptFailed, scriptReady]);
+
+  React.useEffect(() => {
+    if (scriptFailed) onStatusChangeRef.current?.("unavailable");
+  }, [scriptFailed]);
 
   React.useEffect(() => {
     const container = containerRef.current;
-    if (!siteKey || !scriptReady || !container || !window.turnstile || widgetIDRef.current) {
+    if (!siteKey || !scriptReady || scriptFailed || !container || !window.turnstile || widgetIDRef.current) {
       return undefined;
     }
 
-    widgetIDRef.current = window.turnstile.render(container, {
-      sitekey: siteKey,
-      theme: "auto",
-      size: "flexible",
-      callback: (token) => onTokenChangeRef.current(token),
-      "expired-callback": () => onTokenChangeRef.current(""),
-      "error-callback": () => onTokenChangeRef.current(""),
-    });
+    try {
+      widgetIDRef.current = window.turnstile.render(container, {
+        sitekey: siteKey,
+        theme: "auto",
+        size: "flexible",
+        callback: (token) => {
+          onTokenChangeRef.current(token);
+          onStatusChangeRef.current?.("verified");
+        },
+        "expired-callback": () => {
+          onTokenChangeRef.current("");
+          onStatusChangeRef.current?.("ready");
+        },
+        "error-callback": () => {
+          onTokenChangeRef.current("");
+          onStatusChangeRef.current?.("unavailable");
+        },
+      });
+      onStatusChangeRef.current?.("ready");
+    } catch {
+      onTokenChangeRef.current("");
+      onStatusChangeRef.current?.("unavailable");
+    }
 
     return () => {
       const widgetID = widgetIDRef.current;
@@ -66,7 +99,7 @@ export function TurnstileWidget({ siteKey, resetSignal, onTokenChange }: Turnsti
       widgetIDRef.current = null;
       onTokenChangeRef.current("");
     };
-  }, [scriptReady, siteKey]);
+  }, [scriptFailed, scriptReady, siteKey]);
 
   React.useEffect(() => {
     if (lastResetSignalRef.current === resetSignal) {
@@ -75,12 +108,17 @@ export function TurnstileWidget({ siteKey, resetSignal, onTokenChange }: Turnsti
     lastResetSignalRef.current = resetSignal;
     onTokenChangeRef.current("");
     if (widgetIDRef.current && window.turnstile) {
-      window.turnstile.reset(widgetIDRef.current);
+      try {
+        onStatusChangeRef.current?.("ready");
+        window.turnstile.reset(widgetIDRef.current);
+      } catch {
+        onStatusChangeRef.current?.("unavailable");
+      }
     }
   }, [resetSignal]);
 
   return (
-    <div className="min-h-[65px] overflow-hidden rounded-md">
+    <div className="min-h-[65px] overflow-hidden rounded-md" data-turnstile-status={scriptFailed ? "unavailable" : undefined}>
       <Script
         id="cloudflare-turnstile"
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -89,6 +127,7 @@ export function TurnstileWidget({ siteKey, resetSignal, onTokenChange }: Turnsti
         defer
         onLoad={() => setScriptReady(true)}
         onReady={() => setScriptReady(true)}
+        onError={() => setScriptFailed(true)}
       />
       <div ref={containerRef} />
     </div>

@@ -28,6 +28,7 @@
 
 此分支新增受信 sub2api 链接登录、昵称邮箱展示同步和多个 Key 的独立模型服务。Web/Docker 使用 `2026.11.12` 这样的日期版本，Docker Hub 目标为 `195658/deeix-chat`。启用这些功能时，请使用本分支镜像，而不是未经修改的上游镜像。
 
+- [v2026.11.13：使用 sub2api 邮箱密码登录](<docs/releases/2026.11.13.md>)——需开启 `SUB2API_PASSWORD_LOGIN_ENABLED=true`，详见[配置指南](<deploy/SUB2API_PASSWORD.md>)。
 - [sub2api 配置与安全边界](<deploy/SUB2API.md>)
 - [GitHub Actions / Docker Hub 发布流程](<deploy/RELEASING.md>)
 - [v2026.11.12-fix.1：DeepSeek 与按 Key 协议选择](<docs/releases/2026.11.12-fix.1.md>)——请明确使用 `195658/deeix-chat:2026.11.12-fix.1`，本修订版不替换 `latest`。

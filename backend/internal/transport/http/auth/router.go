@@ -34,6 +34,12 @@ func (m *Module) RegisterPublicRoutes(api *gin.RouterGroup, gate middleware.Feat
 // RegisterSub2APIRoutes isolates account switching before its mandatory IP
 // limiter; it must not inherit the optional public-auth limiter.
 func (m *Module) RegisterSub2APIRoutes(api *gin.RouterGroup, limiter middleware.RateLimiter, cfg *config.Runtime) {
+	api.GET("/auth/sub2api/login-options", m.Handler.Sub2APIPasswordLoginOptions)
+	password := api.Group("/auth/sub2api/login", m.Handler.sub2APIPasswordBoundary(cfg.Snapshot().CORSAllowOrigin), m.Handler.sub2APIPasswordRateLimit(limiter, cfg))
+	password.POST("", m.Handler.LoginSub2APIPassword)
+	password.POST("/2fa", m.Handler.VerifySub2APIPasswordTwoFactor)
+	password.POST("/continue", m.Handler.ContinueSub2APIPassword)
+	password.POST("/cancel", m.Handler.CancelSub2APIPassword)
 	api.POST("/auth/sub2api/exchange",
 		m.Handler.sub2APIExchangeBoundary(cfg.Snapshot().CORSAllowOrigin),
 		middleware.Sub2APIExchangeRateLimit(limiter, cfg),

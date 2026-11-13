@@ -466,7 +466,7 @@ async function main() {
       await summary.waitFor();
       await summary.locator('details summary').click();
       assert((await summary.innerText()).includes('New Key'));
-      assert((await summary.innerText()).includes('will not automatically import'));
+      assert.match(await summary.innerText(), /will not automatically import|不会自动补导入/);
     });
     await scenario('all-failed import shows precise quota details and no raw upstream error', {
       exchange: route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({

@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { SpinnerLabel } from "@/components/ui/spinner";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/account-policy";
 import { useAuthLoginPage } from "@/features/auth/hooks/use-auth-login-page";
+import { useAuthSub2ApiPasswordLogin } from "@/features/auth/hooks/use-auth-sub2api-password-login";
+import { Sub2ApiPasswordLogin } from "@/features/auth/components/sub2api-password-login";
 import { AppLogo } from "@/shared/components/app-logo";
 import { IdentityProviderIcon } from "@/entities/identity-provider";
 import { CustomBrandAttribution } from "@/shared/components/powered-by-deeix";
@@ -31,6 +33,11 @@ function LoginBrandMark() {
 export function LoginPage({ nextPath }: LoginPageProps) {
   const t = useTranslations("login");
   const loginPage = useAuthLoginPage({ nextPath });
+  const sub2apiLogin = useAuthSub2ApiPasswordLogin({
+    nextPath: loginPage.resolvedNextPath,
+    localChallengeActive: Boolean(loginPage.twoFactorChallengeToken),
+    onLocalTwoFactor: loginPage.presentTwoFactorChallenge,
+  });
   const {
     cancelTwoFactorChallenge,
     canShowRegisterSwitch,
@@ -102,21 +109,38 @@ export function LoginPage({ nextPath }: LoginPageProps) {
       : t("username");
   const alternativeTwoFactorMethod = twoFactorVerificationMethods.find((method) => method !== twoFactorVerificationMethod && method !== "none");
   const twoFactorUsesEmail = twoFactorVerificationMethod === "email";
+  const showSub2Api = sub2apiLogin.available && sub2apiLogin.mode === "sub2api" && !twoFactorChallengeToken;
+  const ready = configReady && sub2apiLogin.optionsReady;
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 text-foreground" aria-busy={!configReady}>
-      <div className="w-full max-w-[360px]">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8 text-foreground" aria-busy={!ready}>
+      <div className={cn("w-full", showSub2Api && sub2apiLogin.stage.stage === "protocol-selection" ? "max-w-2xl" : "max-w-[360px]")}>
         <LoginBrandMark />
 
         <div
-          aria-hidden={!configReady}
+          aria-hidden={!ready}
           className={cn(
             "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-            configReady ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
+            ready ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
           )}
         >
-          {configReady ? (
+          {ready ? (
             <div className="min-h-0 overflow-hidden px-2">
+            {showSub2Api && sub2apiLogin.options ? (
+              <Sub2ApiPasswordLogin
+                options={sub2apiLogin.options}
+                stage={sub2apiLogin.stage}
+                submitting={sub2apiLogin.submitting}
+                error={sub2apiLogin.error}
+                errorSummary={sub2apiLogin.errorSummary}
+                onPasswordSubmit={sub2apiLogin.submitPassword}
+                onRemoteCodeSubmit={sub2apiLogin.submitRemoteCode}
+                onProtocolSubmit={sub2apiLogin.submitProtocols}
+                onCancel={sub2apiLogin.cancel}
+              />
+            ) : null}
+            {!showSub2Api ? (
+              <>
             {mode === "login" && twoFactorChallengeToken ? (
               <>
                 <form className="mt-7 space-y-4" onSubmit={onLoginSubmit}>
@@ -456,6 +480,21 @@ export function LoginPage({ nextPath }: LoginPageProps) {
                   {mode === "register" ? t("signIn") : t("register")}
                 </button>
               </div>
+            ) : null}
+              </>
+            ) : null}
+            {sub2apiLogin.available && !twoFactorChallengeToken ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-3 h-9 w-full text-xs text-muted-foreground"
+                onClick={() => {
+                  loginPage.clearSensitiveLoginInputs();
+                  sub2apiLogin.switchMode(showSub2Api ? "local" : "sub2api");
+                }}
+              >
+                {showSub2Api ? t("localLoginMode") : t("sub2apiLoginMode")}
+              </Button>
             ) : null}
             </div>
           ) : null}

@@ -1,6 +1,6 @@
 {
   "name": "@deeix/chat-monorepo",
-  "version": "2026.11.12-fix.1",
+  "version": "2026.11.13",
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "engines": {

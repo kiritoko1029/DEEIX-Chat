@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	appaudit "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/audit"
@@ -48,6 +49,8 @@ type Service struct {
 	auditWriter          auditWriter
 	avatarFileValidator  avatarFileValidator
 	providerAuthBridge   repository.ProviderAuthBridgeRepository
+	sub2apiPasswordOnce  sync.Once
+	sub2apiPassword      *sub2APIPasswordState
 	sub2apiClient        sub2apiClient
 	sub2apiIdentities    repository.Sub2APIIdentityRepository
 	sub2apiProviders     sub2apiProviderImporter

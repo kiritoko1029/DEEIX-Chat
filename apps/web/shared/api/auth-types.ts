@@ -44,6 +44,23 @@ export type Sub2ApiExchangeOptions = {
   protocolSelections: Sub2ApiProtocolChoice[];
   skipKeyIDs: number[];
 };
+export type Sub2ApiPasswordCaptcha = {
+  provider: "none" | "turnstile";
+  token?: string;
+};
+export type Sub2ApiPasswordLoginOptions = {
+  enabled: boolean;
+  passwordLoginAvailable: boolean;
+  browserOnly: true;
+  unavailableReason: string | null;
+  upstreamVersion: string;
+  remoteTotpEnabled: boolean;
+  captcha: {
+    provider: "none" | "turnstile";
+    siteKey: string;
+  };
+  fallbackURL: string;
+};
 
 export type UserDTO = Omit<AuthUserResponse, "externalProfile"> & {
   externalProfile?: Sub2ApiExternalProfile;

@@ -168,7 +168,7 @@ const redactedValue = "REDACTED"
 var sensitiveQueryKeys = map[string]struct{}{
 	"access_token": {}, "api_key": {}, "apikey": {}, "code": {}, "id_token": {}, "key": {},
 	"password": {}, "refresh_token": {}, "secret": {}, "sig": {}, "signature": {}, "state": {},
-	"ticket": {}, "token": {}, "x-amz-credential": {}, "x-amz-security-token": {}, "x-amz-signature": {},
+	"flowid": {}, "temp_token": {}, "turnstile_token": {}, "totp_code": {}, "ticket": {}, "token": {}, "x-amz-credential": {}, "x-amz-security-token": {}, "x-amz-signature": {},
 	"x-goog-credential": {}, "x-goog-signature": {},
 }
 

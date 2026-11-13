@@ -297,10 +297,11 @@ type yamlConfig struct {
 		TurnstileSiteverifyURL     string   `yaml:"turnstile_siteverify_url"`
 	} `yaml:"security"`
 	Sub2API struct {
-		Enabled        *bool  `yaml:"enabled"`
-		BaseURL        string `yaml:"base_url"`
-		APIBaseURL     string `yaml:"api_base_url"`
-		AllowEmbedding *bool  `yaml:"allow_embedding"`
+		Enabled              *bool  `yaml:"enabled"`
+		PasswordLoginEnabled *bool  `yaml:"password_login_enabled"`
+		BaseURL              string `yaml:"base_url"`
+		APIBaseURL           string `yaml:"api_base_url"`
+		AllowEmbedding       *bool  `yaml:"allow_embedding"`
 	} `yaml:"sub2api"`
 	Database struct {
 		Driver   string `yaml:"driver"`
@@ -462,10 +463,11 @@ type Config struct {
 	OTelSamplingRate             float64
 
 	// Sub2API is an explicit deployment-level trust relationship, disabled by default.
-	Sub2APIEnabled        bool
-	Sub2APIBaseURL        string
-	Sub2APIAPIBaseURL     string
-	Sub2APIAllowEmbedding bool
+	Sub2APIPasswordLoginEnabled bool
+	Sub2APIEnabled              bool
+	Sub2APIBaseURL              string
+	Sub2APIAPIBaseURL           string
+	Sub2APIAllowEmbedding       bool
 
 	// ── 动态配置（由 DB 种子初始化默认值，settings.RuntimeSettings.ApplyTo 覆盖） ──
 	// 认证配置
@@ -666,6 +668,7 @@ func Load() Config {
 		SSRFProtectionEnabled:        envOrBoolPtr("SSRF_PROTECTION_ENABLED", yc.Security.SSRFProtectionEnabled, false),
 		SSRFAllowedHosts:             envOr("SSRF_ALLOWED_HOSTS", yc.Security.SSRFAllowedHosts, ""),
 		SSRFAllowedCIDRs:             envOr("SSRF_ALLOWED_CIDRS", yc.Security.SSRFAllowedCIDRs, ""),
+		Sub2APIPasswordLoginEnabled:  envOrBoolPtr("SUB2API_PASSWORD_LOGIN_ENABLED", yc.Sub2API.PasswordLoginEnabled, false),
 		Sub2APIEnabled:               envOrBoolPtr("SUB2API_ENABLED", yc.Sub2API.Enabled, false),
 		Sub2APIAllowEmbedding:        envOrBoolPtr("SUB2API_ALLOW_EMBEDDING", yc.Sub2API.AllowEmbedding, false),
 		Sub2APIBaseURL:               strings.TrimRight(strings.TrimSpace(envOr("SUB2API_BASE_URL", yc.Sub2API.BaseURL, "")), "/"),

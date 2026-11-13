@@ -13,7 +13,7 @@ import (
 )
 
 // @title DEEIX Chat API
-// @version 2026.11.12-fix.1
+// @version 2026.11.13
 // @description DEEIX Chat 后端 API 文档
 // @BasePath /api/v1
 // @securityDefinitions.apikey BearerAuth

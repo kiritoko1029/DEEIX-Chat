@@ -119,6 +119,7 @@ func (c *Client) get(ctx context.Context, target, token, stage string, result an
 		return port.ErrUnavailable
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", integrationUserAgent)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -127,6 +128,9 @@ func (c *Client) get(ctx context.Context, target, token, stage string, result an
 		return port.ErrUnavailable
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return passwordRateLimitError(resp)
+	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return rejectedResponse(resp, stage)
 	}

@@ -441,7 +441,33 @@ export function useAuthLoginPage({ nextPath }: UseAuthLoginPageInput) {
     }
   }, [canShowRegister, mode]);
 
+  const presentTwoFactorChallenge = React.useCallback((result: LoginData) => {
+    const methods: SecurityVerificationMethod[] = result.verificationMethods?.length ? result.verificationMethods : ["two_factor"];
+    setTwoFactorChallengeToken(result.twoFactorChallengeToken ?? "");
+    setTwoFactorVerificationMethods(methods);
+    setTwoFactorVerificationMethod(methods[0] ?? "two_factor");
+    setTwoFactorCode("");
+    setTwoFactorEmailDebugCode("");
+    setPassword("");
+    setMode("login");
+  }, []);
+
+  const clearSensitiveLoginInputs = React.useCallback(() => {
+    setPassword("");
+    setTwoFactorCode("");
+    setRegisterPassword("");
+    setResetPassword("");
+    setRegisterCode("");
+    setResetCode("");
+    setRegisterTurnstileToken("");
+    setRegisterTurnstileResetSignal((current) => current + 1);
+    setMode("login");
+  }, []);
+
   return {
+    resolvedNextPath,
+    presentTwoFactorChallenge,
+    clearSensitiveLoginInputs,
     codeSent,
     configReady,
     emailRegistrationEnabled,

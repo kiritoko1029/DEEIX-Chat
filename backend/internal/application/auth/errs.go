@@ -236,3 +236,15 @@ type Sub2APIImportError struct {
 
 func (e *Sub2APIImportError) Error() string { return e.Cause.Error() }
 func (e *Sub2APIImportError) Unwrap() error { return e.Cause }
+
+var (
+	ErrSub2APIPasswordDisabled       = apperr.New("auth.sub2api_password_disabled", "sub2api password login is disabled")
+	ErrSub2APIPasswordUnavailable    = apperr.New("auth.sub2api_password_unavailable", "sub2api password login is unavailable; use the sub2api site")
+	ErrSub2APIPasswordInvalidRequest = apperr.New("auth.sub2api_password_invalid_request", "invalid sub2api password login request")
+	ErrSub2APIPasswordCredentials    = apperr.New("auth.sub2api_invalid_credentials", "invalid sub2api email or password")
+	ErrSub2APIPasswordCaptcha        = apperr.New("auth.sub2api_captcha_failed", "sub2api verification failed; complete a new verification")
+	ErrSub2APIPasswordTwoFactor      = apperr.New("auth.sub2api_remote_two_factor_invalid", "invalid sub2api verification code")
+	ErrSub2APIPasswordFlowExpired    = apperr.New("auth.sub2api_login_flow_expired", "sub2api login expired; start again")
+	ErrSub2APIPasswordFlowBusy       = apperr.New("auth.sub2api_login_flow_busy", "sub2api login is in progress")
+	ErrSub2APIPasswordRateLimited    = apperr.New("auth.sub2api_login_rate_limited", "too many sub2api login attempts")
+)

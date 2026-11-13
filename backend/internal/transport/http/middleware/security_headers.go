@@ -44,7 +44,7 @@ func SecurityHeaders(frameOrigins ...string) gin.HandlerFunc {
 }
 
 func sensitiveSub2APIResponse(r *http.Request) bool {
-	if r.URL.Path == "/api/v1/auth/sub2api/exchange" {
+	if strings.HasPrefix(r.URL.Path, "/api/v1/auth/sub2api/") {
 		return true
 	}
 	if r.URL.Path != "/" {

@@ -41,6 +41,7 @@ security:
 # Users must already have a usable sub2api API Key. HTTPS public endpoints only.
 sub2api:
   enabled: false
+  password_login_enabled: false # Optional Web email/password verification via sub2api; see SUB2API_PASSWORD.md.
   base_url: "" # Management site origin, without /api/v1.
   api_base_url: "" # Optional explicit gateway URL; required for a different origin.
   allow_embedding: false # Opt in to framing only by the configured management origin; Cookie/browser restrictions still apply.

@@ -23,6 +23,7 @@ import type {
   PasswordChangeVerificationStartData,
   SecurityVerificationMethod,
   Sub2ApiExchangeOptions,
+  Sub2ApiPasswordCaptcha,
   TwoFactorDisableData,
   TwoFactorRecoveryCodesData,
   TwoFactorSetupStartData,
@@ -65,6 +66,38 @@ export async function exchangeSub2Api(userID: number, token: string, options?: S
       } : {}),
     },
     signal,
+  });
+}
+
+export async function getSub2ApiPasswordLoginOptions(): Promise<unknown> {
+  return apiRequest<unknown>("/api/v1/auth/sub2api/login-options");
+}
+
+export async function loginSub2ApiPassword(email: string, password: string, captcha: Sub2ApiPasswordCaptcha): Promise<unknown> {
+  return apiRequest<unknown>("/api/v1/auth/sub2api/login", {
+    method: "POST",
+    body: { email, password, captcha },
+  });
+}
+
+export async function verifySub2ApiPasswordTwoFactor(flowID: string, code: string): Promise<unknown> {
+  return apiRequest<unknown>("/api/v1/auth/sub2api/login/2fa", {
+    method: "POST",
+    body: { flowID, code },
+  });
+}
+
+export async function continueSub2ApiPasswordLogin(flowID: string, options: Sub2ApiExchangeOptions): Promise<unknown> {
+  return apiRequest<unknown>("/api/v1/auth/sub2api/login/continue", {
+    method: "POST",
+    body: { flowID, protocolSelections: options.protocolSelections, skipKeyIDs: options.skipKeyIDs },
+  });
+}
+
+export async function cancelSub2ApiPasswordLogin(flowID: string): Promise<void> {
+  await apiRequest<{ cancelled: boolean }>("/api/v1/auth/sub2api/login/cancel", {
+    method: "POST",
+    body: { flowID },
   });
 }
 

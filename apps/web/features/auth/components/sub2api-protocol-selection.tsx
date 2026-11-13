@@ -19,9 +19,10 @@ type Sub2ApiProtocolSelectionProps = {
   selection: Sub2ApiProtocolSelectionData;
   onSubmit: (decisions: ReadonlyMap<number, Sub2ApiProtocolDecision>) => void;
   onCancel: () => void;
+  cancelLabel?: string;
 };
 
-export function Sub2ApiProtocolSelection({ selection, onSubmit, onCancel }: Sub2ApiProtocolSelectionProps) {
+export function Sub2ApiProtocolSelection({ selection, onSubmit, onCancel, cancelLabel }: Sub2ApiProtocolSelectionProps) {
   const t = useTranslations("login.sub2api.protocolSelection");
   const [decisions, setDecisions] = React.useState<ReadonlyMap<number, Sub2ApiProtocolDecision>>(new Map());
   const currentDecisions = new Map(selection.items.flatMap((item) => {
@@ -102,7 +103,7 @@ export function Sub2ApiProtocolSelection({ selection, onSubmit, onCancel }: Sub2
         </ul>
       </CardContent>
       <CardFooter className="flex-col-reverse gap-2 px-5 sm:flex-row sm:justify-end">
-        <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={onCancel}>{t("cancel")}</Button>
+        <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={onCancel}>{cancelLabel ?? t("cancel")}</Button>
         <Button
           type="button"
           className="w-full sm:w-auto"

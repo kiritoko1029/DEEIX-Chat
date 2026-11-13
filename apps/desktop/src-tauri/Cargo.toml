@@ -1,6 +1,6 @@
 [package]
 name = "deeix-chat-desktop"
-version = "2026.11.12-fix.1"
+version = "2026.11.13"
 description = "DEEIX Chat desktop shell"
 authors = ["DEEIX"]
 edition = "2021"

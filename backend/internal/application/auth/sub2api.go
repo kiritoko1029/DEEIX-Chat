@@ -36,7 +36,15 @@ func (s *Service) Sub2APIEnabled() bool {
 
 // ExchangeSub2API uses the remote credential only within this request. No JWT or
 // upstream response body is retained. Display-only profile fields are stored separately.
-func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, requestID string, auditCtx requestmeta.SessionAuditContext, options ...Sub2APIExchangeOptions) (result *LoginResult, err error) {
+func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, requestID string, auditCtx requestmeta.SessionAuditContext, options ...Sub2APIExchangeOptions) (*LoginResult, error) {
+	return s.exchangeSub2API(ctx, userID, rawToken, requestID, auditCtx, "", options...)
+}
+
+// expectedConfiguration is supplied only by the server-owned password flow.
+// Check it against the same snapshot that determines Fetch and imported gateway
+// destinations, before sending any remote credential. Public URL exchange has
+// no expected configuration and retains its existing behavior.
+func (s *Service) exchangeSub2API(ctx context.Context, userID int64, rawToken, requestID string, auditCtx requestmeta.SessionAuditContext, expectedConfiguration string, options ...Sub2APIExchangeOptions) (result *LoginResult, err error) {
 	if !s.Sub2APIEnabled() {
 		return nil, ErrSub2APIDisabled
 	}
@@ -72,8 +80,15 @@ func (s *Service) ExchangeSub2API(ctx context.Context, userID int64, rawToken, r
 		return nil, ErrSub2APIUnavailable
 	}
 	instance = strings.TrimSuffix(instance, "/api/v1")
+	if expectedConfiguration != "" && (expectedConfiguration != instance+"\n"+cfg.Sub2APIAPIBaseURL || !cfg.Sub2APIEnabled || !cfg.Sub2APIPasswordLoginEnabled || cfg.LocalMode) {
+		return nil, ErrSub2APIPasswordFlowExpired
+	}
 	snapshot, err := s.sub2apiClient.Fetch(ctx, instance, rawToken, userID, cfg.Sub2APIAPIBaseURL == "")
 	if err != nil {
+		var remoteLimit *port.PasswordError
+		if errors.As(err, &remoteLimit) && remoteLimit.Kind == "rate_limited" {
+			return nil, errors.Join(ErrSub2APIUnavailable, remoteLimit)
+		}
 		if errors.Is(err, port.ErrRejected) {
 			return nil, &Sub2APIRejectionError{details: port.RejectionDetailsFrom(err)}
 		}

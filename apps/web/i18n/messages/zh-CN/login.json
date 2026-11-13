@@ -150,7 +150,39 @@
       "confirm": "确认并继续",
       "cancel": "返回普通登录"
     },
+    "passwordLogin": {
+      "title": "使用 sub2api 账号登录",
+      "description": "使用 sub2api 邮箱和密码登录到同一远端身份映射的 Chat 账号，不会创建或同步 Chat 密码。",
+      "email": "sub2api 邮箱",
+      "emailPlaceholder": "{{TEST_EMAIL_1}}",
+      "password": "sub2api 密码",
+      "signIn": "使用 sub2api 登录",
+      "signingIn": "正在通过 sub2api 登录",
+      "remoteTwoFactorTitle": "sub2api 两步验证",
+      "remoteTwoFactorDescription": "请输入 {email} 在 sub2api 的 6 位 TOTP 验证码。此验证与 Chat 两步验证相互独立。",
+      "remoteTwoFactorCode": "sub2api 6 位验证码",
+      "remoteTwoFactorPlaceholder": "123456",
+      "verifying": "正在验证 sub2api 验证码",
+      "verifyRemote": "验证 sub2api 验证码",
+      "cancel": "取消 sub2api 登录",
+      "boundary": "仅限 Web 浏览器。两端密码不会互相同步或自动填充，sub2api 管理员身份不会授予 Chat 管理权限。",
+      "openSub2Api": "前往 sub2api 管理账号或登录",
+      "errors": {
+        "captcha-unavailable": "当前页面无法完成 sub2api 人机验证：域名可能未获授权，或验证脚本加载失败、超时。请前往 sub2api 登录。",
+        "disabled": "本部署未启用 sub2api 邮箱登录。请使用 Chat 登录或前往 sub2api。",
+        "unavailable": "sub2api 邮箱登录暂不可用，可能存在配置错误或不受支持的验证方式。请前往 sub2api 登录。",
+        "invalid-request": "sub2api 登录请求无效，请检查邮箱并重新登录。",
+        "invalid-credentials": "sub2api 未接受该邮箱和密码，请重新输入；系统未自动重试。",
+        "captcha-failed": "sub2api 人机验证失败，请完成新的验证后再登录。",
+        "remote-two-factor-invalid": "sub2api 验证码不正确，请在原登录有效期内输入新的 6 位验证码。",
+        "flow-expired": "本次 sub2api 登录已过期，请重新输入邮箱和密码。",
+        "flow-busy": "本次 sub2api 登录正在处理另一请求；若仍未完成，请重新登录。",
+        "rate-limited": "sub2api 登录尝试过于频繁，请稍后重试。"
+      }
+    },
     "backToLogin": "返回普通登录"
   },
-  "registerInBrowser": "在浏览器中注册"
+  "registerInBrowser": "在浏览器中注册",
+  "sub2apiLoginMode": "使用 sub2api 邮箱登录",
+  "localLoginMode": "使用 Chat 本地账号 / 管理员"
 }
