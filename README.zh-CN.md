@@ -28,6 +28,7 @@
 
 此分支新增受信 sub2api 链接登录、昵称邮箱展示同步和多个 Key 的独立模型服务。Web/Docker 使用 `2026.11.12` 这样的日期版本，Docker Hub 目标为 `195658/deeix-chat`。启用这些功能时，请使用本分支镜像，而不是未经修改的上游镜像。
 
+- [v2026.11.16-fix.1：联网开关与实际请求对齐](<docs/releases/2026.11.16-fix.1.md>)——使用 `195658/deeix-chat:2026.11.16-fix.1`，本修订版不替换 `latest`。
 - [v2026.11.16：DeepSeek 联网工具与输入框联网开关](<docs/releases/2026.11.16.md>)——DeepSeek 模型默认开启联网搜索与阅读链接，上游拒绝时自动回退为普通回答，用户可在输入框一键关闭；使用 `195658/deeix-chat:2026.11.16`。
 - [v2026.11.13-fix.1：来源用户名邮箱与上海默认时区](<docs/releases/2026.11.13-fix.1.md>)——使用 `195658/deeix-chat:2026.11.13-fix.1`，本修订版不替换 `latest`。
 - [v2026.11.13：使用 sub2api 邮箱密码登录](<docs/releases/2026.11.13.md>)——需开启 `SUB2API_PASSWORD_LOGIN_ENABLED=true`，详见[配置指南](<deploy/SUB2API_PASSWORD.md>)。
