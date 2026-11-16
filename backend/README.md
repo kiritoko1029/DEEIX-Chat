@@ -422,8 +422,9 @@ OCR 引擎配置由后台文件设置管理，当前支持 RapidOCR、Tesseract 
 
 DeepSeek 的 `deepseek_web_search`（联网搜索，含深度思考搜索的打开网页/页内查找与图片搜索）与 `deepseek_read_url`（阅读用户消息中的链接）已在 `shared/nativetool` 目录中按三种协议登记（`anthropic_messages` 带 `name`，`openai_responses` / `openai_chat_completions` 不带 `name`），厂商为 `deepseek`，默认计费标记为 `notMetered`（价格由管理员在计费设置中按官方规则覆盖）。
 
-- **默认开启**：请求管线按路由的 `ModelVendor` 注入这两个工具。当模型能力 JSON 完全未声明 `nativeTools`/`nativeToolKeys`/`defaultOptions.tools` 时视为管理员未接管，自动带上目录中该厂商在该协议下默认开启的工具；一旦管理员显式声明原生工具（哪怕声明为空数组）即完全接管，不再注入。客户端在 `options.tools` 中显式提交空数组表示本次关闭。
+- **默认开启**：请求管线按路由的 `ModelVendor` 注入这两个工具。模型能力 JSON 未声明 `nativeTools`/`nativeToolKeys`/`defaultOptions.tools`，或只声明了**空数组**（旧编辑器/导入的残留）时视为管理员未接管，自动带上目录中该厂商在该协议下默认开启的工具。管理员声明了本厂商工具（如 `deepseek_web_search`）时完全接管；只声明了其它厂商的服务端工具时，由于上游会忽略这些声明，改用厂商默认工具并在过程日志中告警。如需彻底关闭厂商默认注入，在能力 JSON 中写 `"disableVendorNativeTools": true` 或 `"vendorNativeTools": false`。客户端在 `options.tools` 中显式提交空数组表示本次由用户关闭。
 - **用户开关**：聊天输入框提供联网开关（Web 端 `chat-input` 的 Globe 按钮），用户可直接启停当前模型的原生联网能力，不依赖管理员配置。关闭时前端提交 `options.tools: []`，保证服务端默认注入不会把开关重新打开；选择结果按模型缓存在本地，重置模型参数即恢复服务端默认。
+- **排查信号**：请求声明了 DeepSeek 联网工具、但上游既没有返回工具调用也没有引用时，后端记录 `vendor_native_tools_declared_but_unused` 告警（含 run id、协议、厂商、上游模型）。出现该告警通常意味着中转网关静默忽略了服务端工具，而不是平台没有声明。
 - **自动回退**：上游若在请求被接受前明确拒绝这些声明（400/404/415/422/500/502 且错误信息指向工具名或 unknown/unsupported/invalid 等），后端会只剥离这两个 DeepSeek 工具、保留 MCP/函数工具与其他厂商原生工具，在同一路由重发一次，并在消息过程轨迹中留下"已自动回退为普通回答"的说明。内容审核、上下文超限、鉴权、余额与限流错误不会触发回退；已产生用量、推理或工具事件后也不会重发，避免重复计费。
 - **收费口径**：只把 DeepSeek `usage.server_tool_use` 中的计费计数 `tool_search`、`tool_fetch`、`tool_image_search` 记为原生工具用量，展示用计数（`web_search_requests`、`web_fetch_requests`）不计费，避免误套 OpenAI/Anthropic 的按次价格。
 - **已知限制**：`deepseek_read_url` 抓取正文以加密 `signature` 回传，本实现不落库也不下发该密文，因此后续轮次无法自动恢复已阅读网页的正文（请求本身仍成功）；展示只保留 URL、标题与发布时间。

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/ports/llm"
+	"go.uber.org/zap"
 )
 
 // deepSeekNativeWebToolTypes 是本轮唯一允许被自动回退剥离的厂商原生工具。
@@ -217,4 +218,29 @@ func truncateTraceText(value string, maxChars int) string {
 		return value
 	}
 	return strings.TrimSpace(string(runes[:maxChars])) + "…"
+}
+
+// logVendorNativeToolsUnused 在上游接受请求但没有产出任何联网动作时记录一条告警。
+// 这是“网关静默丢弃服务端工具”的唯一可观测线索：请求没有失败，所以不会触发自动回退。
+func logVendorNativeToolsUnused(
+	logger *zap.Logger,
+	protocol string,
+	vendor string,
+	upstreamModel string,
+	runID string,
+	options map[string]any,
+	output *llm.GenerateOutput,
+) {
+	if logger == nil || output == nil || !hasVendorNativeTools(options) {
+		return
+	}
+	if len(output.ServerToolCalls) > 0 || len(output.Citations) > 0 {
+		return
+	}
+	logger.Warn("vendor_native_tools_declared_but_unused",
+		zap.String("run_id", strings.TrimSpace(runID)),
+		zap.String("protocol", strings.TrimSpace(protocol)),
+		zap.String("vendor", strings.TrimSpace(vendor)),
+		zap.String("upstream_model", strings.TrimSpace(upstreamModel)),
+	)
 }

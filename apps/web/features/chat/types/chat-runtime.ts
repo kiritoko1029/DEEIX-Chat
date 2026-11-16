@@ -33,6 +33,8 @@ export type ChatModelOption = {
   lockedOptionPaths: string[];
   nativeToolKeys: string[];
   nativeTools: ModelNativeToolConfig[];
+  // Administrator opt-out of vendor-default native tools (capabilitiesJSON.disableVendorNativeTools).
+  vendorNativeToolsDisabled: boolean;
   pricing: PublicModelPricingDTO | null;
   videoExtension: ModelMediaTaskConfig | null;
   // Normalized reasoning effort capability (explicit or inferred by the backend); null when unsupported.

@@ -45,16 +45,39 @@ func TestApplyVendorDefaultNativeToolsSkipsNonDeepSeekOrConfiguredModels(t *test
 	if payloads := applyVendorDefaultNativeTools("gemini_generate_content", "deepseek", "", nil, nil); len(payloads) != 0 {
 		t.Fatalf("expected no injection for unsupported protocol, got %#v", payloads)
 	}
-	managed := `{"nativeTools":[{"key":"openai.web_search","protocol":"anthropic_messages","type":"web_search_20250305","enabled":true}]}`
-	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", managed, nil, nil); len(payloads) != 0 {
-		t.Fatalf("expected administrator nativeTools to take over, got %#v", payloads)
+	// 只声明了其它厂商的服务端工具：DeepSeek 会忽略它们，应回落到厂商默认工具。
+	foreign := `{"nativeTools":[{"key":"openai.web_search","protocol":"anthropic_messages","type":"web_search_20250305","enabled":true}]}`
+	foreignRequested := []map[string]any{{"type": "web_search_20250305", "name": "web_search"}}
+	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", foreign, foreignRequested, foreignRequested); len(payloads) != 2 {
+		t.Fatalf("expected foreign native tools to be replaced by vendor defaults, got %#v", payloads)
 	}
-	cleared := `{"nativeTools":[]}`
-	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", cleared, nil, nil); len(payloads) != 0 {
-		t.Fatalf("expected cleared nativeTools to opt out, got %#v", payloads)
+	// 声明了本厂商工具：完全按管理员声明执行（这里用户没有选中任何工具）。
+	managedKeys := `{"nativeToolKeys":["deepseek.web_search"]}`
+	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", managedKeys, nil, nil); len(payloads) != 0 {
+		t.Fatalf("expected vendor nativeToolKeys to take over, got %#v", payloads)
+	}
+	managedDefaults := `{"defaultOptions":{"tools":[{"type":"deepseek_web_search"}]}}`
+	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", managedDefaults, nil, nil); len(payloads) != 0 {
+		t.Fatalf("expected vendor defaultOptions.tools to take over, got %#v", payloads)
+	}
+	managedTools := `{"nativeTools":[{"key":"deepseek.web_search","type":"deepseek_web_search","enabled":true}]}`
+	selected := []map[string]any{{"type": "deepseek_web_search", "name": "deepseek_web_search"}}
+	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", managedTools, selected, selected); len(payloads) != 1 {
+		t.Fatalf("expected only the selected vendor tool, got %#v", payloads)
+	}
+	// 空数组是旧编辑器/导入的残留，不应被当作“管理员接管”，否则输入框开关会撒谎。
+	for _, cleared := range []string{`{"nativeTools":[]}`, `{"nativeToolKeys":[]}`, `{"defaultOptions":{"tools":[]}}`} {
+		if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", cleared, nil, nil); len(payloads) != 2 {
+			t.Fatalf("expected empty declarations in %s to keep vendor defaults, got %#v", cleared, payloads)
+		}
 	}
 	if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", "", []any{}, nil); len(payloads) != 0 {
 		t.Fatalf("expected explicit empty tools to opt out, got %#v", payloads)
+	}
+	for _, disabled := range []string{`{"disableVendorNativeTools":true}`, `{"vendorNativeTools":false}`} {
+		if payloads := applyVendorDefaultNativeTools("anthropic_messages", "deepseek", disabled, nil, nil); len(payloads) != 0 {
+			t.Fatalf("expected explicit opt-out in %s to disable defaults, got %#v", disabled, payloads)
+		}
 	}
 }
 
@@ -97,7 +120,21 @@ func TestResolveChatModelOptionsInjectsVendorDefaults(t *testing.T) {
 		ModelCapabilitiesJSON: `{"nativeTools":[{"key":"deepseek.web_search","protocol":"anthropic_messages","type":"deepseek_web_search","enabled":true}]}`,
 	})
 	if tools := providerToolOptionPayloads(options["tools"]); len(tools) != 0 {
-		t.Fatalf("expected configured model to skip defaults, got %#v", options)
+		t.Fatalf("expected configured vendor tool model to skip defaults, got %#v", options)
+	}
+
+	// 管理员配的是 OpenAI 服务端搜索但路由厂商是 DeepSeek：DeepSeek 会忽略该声明，
+	// 因此改用 DeepSeek 自家默认工具，避免“开关开着却没有联网”。
+	options, _ = resolveChatModelOptions(nil, "anthropic_messages", modelOptionPolicyConfig{
+		ModelVendor:           "deepseek",
+		ModelCapabilitiesJSON: `{"nativeTools":[{"key":"openai.web_search","protocol":"anthropic_messages","type":"web_search_20250305","enabled":true}]}`,
+	})
+	fallbackTools := providerToolOptionPayloads(options["tools"])
+	if len(fallbackTools) != 2 {
+		t.Fatalf("expected foreign native tools to fall back to deepseek defaults, got %#v", options)
+	}
+	if modelOptionStringValue(fallbackTools[0]["type"]) != "deepseek_web_search" {
+		t.Fatalf("unexpected fallback tools: %#v", fallbackTools)
 	}
 }
 

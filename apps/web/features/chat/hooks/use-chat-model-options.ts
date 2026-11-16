@@ -324,6 +324,14 @@ function resolveVideoExtensionConfig(raw: string, protocols: string[]): ChatMode
   return { enabled: true, defaultOptions, optionControls: controls };
 }
 
+function resolveVendorNativeToolsDisabled(raw: string): boolean {
+  const parsed = parseJSONObject(raw);
+  if (!parsed) {
+    return false;
+  }
+  return parsed.disableVendorNativeTools === true || parsed.vendorNativeTools === false;
+}
+
 function resolveNativeToolKeys(raw: string): string[] {
   const parsed = parseJSONObject(raw);
   const rawKeys = parsed?.nativeToolKeys;
@@ -372,6 +380,7 @@ function toChatModelOption(
     lockedOptionPaths: resolveLockedOptionPaths(item.capabilitiesJSON),
     nativeToolKeys: resolveNativeToolKeys(item.capabilitiesJSON),
     nativeTools,
+    vendorNativeToolsDisabled: resolveVendorNativeToolsDisabled(item.capabilitiesJSON),
     pricing: item.pricing,
     videoExtension: resolveVideoExtensionConfig(item.capabilitiesJSON, protocols),
     // Re-validated at runtime so an older server (field absent) or unknown levels degrade to null.

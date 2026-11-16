@@ -53,6 +53,8 @@ import {
 } from "@/features/chat/model/chat-option-controls";
 import {
   hasProviderTool,
+  isPlainOptionObject,
+  isVendorOwnedNativeToolName,
   isWebCapabilityNativeTool,
   type NativeToolVisualOption,
   nativeToolVisualOptionsFromConfigs,
@@ -537,13 +539,25 @@ function ChatInputComponent({
     () => nativeToolOptions.filter((tool) => isWebCapabilityNativeTool(tool.primary)),
     [nativeToolOptions],
   );
-  const adminDeclaredNativeTools = selectedModel
-    ? (selectedModel.nativeTools.length > 0
-      || selectedModel.nativeToolKeys.length > 0
-      || Object.hasOwn(selectedModel.defaultOptions, "tools"))
+  // Whether the model declares tools the current vendor can actually run. Declarations for another
+  // provider's server tools are ignored by the upstream, so they must not hide the vendor defaults.
+  const adminDeclaredVendorNativeTools = selectedModel
+    ? (selectedModel.nativeTools.some((tool) =>
+      isVendorOwnedNativeToolName(selectedModel.vendor, tool.key)
+      || isVendorOwnedNativeToolName(selectedModel.vendor, tool.type))
+      || selectedModel.nativeToolKeys.some((key) => isVendorOwnedNativeToolName(selectedModel.vendor, key))
+      || (Array.isArray(selectedModel.defaultOptions.tools)
+        && selectedModel.defaultOptions.tools.some((tool) =>
+          isPlainOptionObject(tool)
+          && isVendorOwnedNativeToolName(selectedModel.vendor, String(tool.type ?? "")))))
     : false;
-  const webToolOptions = adminDeclaredNativeTools ? adminWebToolOptions : vendorWebToolOptions;
-  const usesVendorDefaultWebTools = !adminDeclaredNativeTools && vendorWebToolOptions.length > 0;
+  const vendorNativeToolsDisabled = selectedModel?.vendorNativeToolsDisabled === true;
+  const webToolOptions = adminDeclaredVendorNativeTools || vendorNativeToolsDisabled
+    ? adminWebToolOptions
+    : vendorWebToolOptions;
+  const usesVendorDefaultWebTools = !adminDeclaredVendorNativeTools
+    && !vendorNativeToolsDisabled
+    && vendorWebToolOptions.length > 0;
   const webToolsEnabled = React.useMemo(() => {
     if (webToolOptions.length === 0) {
       return false;
@@ -559,22 +573,18 @@ function ChatInputComponent({
   }, [options, usesVendorDefaultWebTools, webToolOptions]);
   const handleWebToolsChange = React.useCallback((enabled: boolean) => {
     onOptionsChange((current) => {
-      const definitions = webToolOptions.flatMap((tool) => tool.variants);
-      if (definitions.length === 0) {
-        return current;
+      if (!usesVendorDefaultWebTools) {
+        const definitions = webToolOptions.flatMap((tool) => tool.variants);
+        return definitions.length === 0 ? current : setProviderToolEnabled(current, definitions, enabled);
       }
-      if (!enabled && usesVendorDefaultWebTools) {
-        const next = setProviderToolEnabled(current, definitions, false);
-        const remaining = Array.isArray(next.tools) ? next.tools.length : 0;
-        return remaining === 0 ? { ...current, tools: [] } : next;
+      if (enabled) {
+        // Vendor defaults are applied by the server when no usable tool is selected. Clearing an
+        // explicit opt-out (`tools: []`) is enough; foreign declarations are ignored upstream.
+        const { tools, ...rest } = current;
+        return !Array.isArray(tools) || tools.length === 0 ? rest : current;
       }
-      if (enabled && usesVendorDefaultWebTools) {
-        const { tools: currentTools, ...rest } = current;
-        if (!Array.isArray(currentTools) || currentTools.length === 0) {
-          return rest;
-        }
-      }
-      return setProviderToolEnabled(current, definitions, enabled);
+      // Explicit empty tools is the only signal the server honors as "user turned web off".
+      return { ...current, tools: [] };
     });
   }, [onOptionsChange, usesVendorDefaultWebTools, webToolOptions]);
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;

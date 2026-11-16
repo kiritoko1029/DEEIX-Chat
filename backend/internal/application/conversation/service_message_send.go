@@ -844,6 +844,7 @@ func (s *Service) sendMessageInternal(
 	reasoningContentPassback = plan.reasoningContentPassback
 
 	assistantText := upstreamOutput.Text
+	logVendorNativeToolsUnused(s.logger, route.Protocol, route.ModelVendor, route.UpstreamModel, runID, generateInput.Options, upstreamOutput)
 	nativeToolRows := upstreamServerToolCallRows(upstreamOutput, runID)
 	toolCallRows = append(toolCallRows, nativeToolRows...)
 	totalUsage := upstreamOutput.Usage

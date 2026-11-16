@@ -519,6 +519,31 @@ func Definitions() []Definition {
 	return result
 }
 
+// IsVendorOwnedType 判断工具类型或工具 key 是否属于指定厂商的官方原生工具。
+// 用于在路由只能接受厂商自有服务端工具时，区分“管理员已配置本厂商工具”和
+// “管理员配置的是会被上游静默忽略的其它厂商工具”。
+func IsVendorOwnedType(vendor string, toolType string) bool {
+	vendor = strings.TrimSpace(vendor)
+	toolType = strings.TrimSpace(toolType)
+	if vendor == "" || toolType == "" {
+		return false
+	}
+	for _, definition := range definitions {
+		if !strings.EqualFold(strings.TrimSpace(definition.Vendor), vendor) {
+			continue
+		}
+		if strings.EqualFold(definition.Type, toolType) || strings.EqualFold(definition.Key, toolType) {
+			return true
+		}
+		for _, alias := range definition.UsageAliases {
+			if strings.EqualFold(strings.TrimSpace(alias), toolType) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // DefaultPayloads 返回指定厂商在指定协议下默认开启的官方原生工具 payload。
 // 调用方负责决定是否真的随请求发送（例如用户显式关闭或管理员已配置原生工具时不注入）。
 func DefaultPayloads(vendor string, protocol string) []map[string]any {

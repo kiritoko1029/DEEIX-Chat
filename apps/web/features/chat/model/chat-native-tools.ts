@@ -220,3 +220,15 @@ export function vendorDefaultWebNativeToolConfigs(
       payload: tool.payload,
     }));
 }
+
+// A provider can only run its own server-side tools; declaring another provider's tool on this route
+// makes the upstream ignore the declaration (DeepSeek documented behavior), so the composer switch
+// must fall back to the vendor defaults instead of pretending the foreign tool works.
+export function isVendorOwnedNativeToolName(vendor: string, name: string): boolean {
+  const vendorKey = vendor.trim().toLowerCase();
+  const toolName = name.trim().toLowerCase();
+  if (!vendorKey || !toolName) {
+    return false;
+  }
+  return toolName.startsWith(`${vendorKey}.`) || toolName.startsWith(`${vendorKey}_`) || toolName.startsWith(`${vendorKey}-`);
+}
