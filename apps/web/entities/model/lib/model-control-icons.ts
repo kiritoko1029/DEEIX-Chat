@@ -200,7 +200,13 @@ export function resolveNativeToolIcon(toolType: string): LucideIcon {
   if (type.includes("web_search") || type === "google_search" || type.includes("grounding")) return Globe;
   if (type.includes("code_execution") || type.includes("code_interpreter")) return CodeXml;
   if (type === "shell" || type.includes("bash") || type.includes("terminal")) return SquareTerminal;
-  if (type.includes("web_fetch") || type.includes("url_context") || type.includes("fetch")) return Link;
+  if (
+    type.includes("web_fetch")
+    || type.includes("url_context")
+    || type.includes("read_url")
+    || type.includes("open_page")
+    || type.includes("fetch")
+  ) return Link;
   if (type.includes("image_generation")) return ImagePlus;
   if (type.includes("file_search")) return FileSearch;
   if (type.includes("maps")) return MapPin;

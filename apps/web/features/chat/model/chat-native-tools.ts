@@ -161,3 +161,62 @@ export function setProviderToolEnabled(
 
   return { ...options, tools: nextTools };
 }
+
+// Web-capability tools: provider-native search, browse, URL reading and page fetching. The composer
+// exposes them as one on/off switch so users control web access without an administrator configuring
+// per-model native tools.
+const WEB_CAPABILITY_TOOL_KEYWORDS = [
+  "search",
+  "browse",
+  "crawler",
+  "crawling",
+  "grounding",
+  "web_search",
+  "web_fetch",
+  "read_url",
+  "read_page",
+  "open_page",
+  "url_context",
+];
+
+export function isWebCapabilityNativeTool(
+  tool: Pick<NativeToolDefinition, "type" | "toolKey">,
+): boolean {
+  const normalized = `${tool.type} ${tool.toolKey}`.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return WEB_CAPABILITY_TOOL_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+// Vendor-default web tools: the backend turns these on for the vendor unless the administrator
+// configured native tools or the user turned web access off (`options.tools: []`).
+const VENDOR_DEFAULT_WEB_TOOL_KEYS = new Set(["deepseek.web_search", "deepseek.read_url"]);
+const VENDOR_DEFAULT_WEB_TOOL_VENDOR = "deepseek";
+
+export function vendorDefaultWebNativeToolConfigs(
+  vendor: string,
+  catalog: NativeToolDefinition[],
+  modelProtocols: string[],
+): ModelNativeToolConfig[] {
+  if (vendor.trim().toLowerCase() !== VENDOR_DEFAULT_WEB_TOOL_VENDOR) {
+    return [];
+  }
+  const protocolSet = new Set(modelProtocols.map(resolveModelOptionPolicyProtocol));
+  return catalog
+    .filter((tool) =>
+      VENDOR_DEFAULT_WEB_TOOL_KEYS.has(tool.toolKey.trim())
+      && tool.defaultEnabled
+      && protocolSet.has(resolveModelOptionPolicyProtocol(tool.protocol)))
+    .map((tool, index): ModelNativeToolConfig => ({
+      id: `vendor-default:${tool.protocol}:${tool.toolKey}:${tool.type}:${index}`,
+      key: tool.toolKey,
+      protocol: tool.protocol,
+      protocols: [tool.protocol],
+      provider: tool.provider,
+      type: tool.type,
+      label: tool.label,
+      description: tool.description,
+      enabled: true,
+      // The server decides the default, so these must not be merged into defaultOptions here.
+      defaultEnabled: false,
+      payload: tool.payload,
+    }));
+}

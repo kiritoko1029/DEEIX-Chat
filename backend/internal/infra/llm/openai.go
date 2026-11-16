@@ -509,6 +509,7 @@ func consumeOpenAIGenerateStream(
 	var eventName string
 	// chatVisibleBuffer 承载 DSML 工具调用识别期间暂缓下发的可见文本。
 	var chatVisibleBuffer string
+	responsesToolItemIDs := make(map[int64]string)
 	dataLines := make([]string, 0, 4)
 
 	dispatch := func() error {
@@ -543,6 +544,7 @@ func consumeOpenAIGenerateStream(
 		case portllm.EndpointChatCompletions:
 			return applyChatStreamEvent(adapter, parsed, result, &chatVisibleBuffer, onEvent, allowTextEncodedToolCalls)
 		default:
+			correlateResponsesStreamToolItem(parsed, responsesToolItemIDs)
 			return applyResponsesStreamEvent(adapter, currentEvent, parsed, payloadText, result, onEvent)
 		}
 	}

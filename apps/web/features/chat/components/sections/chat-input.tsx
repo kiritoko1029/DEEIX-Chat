@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, CircleAlert, CornerDownRight, Eye, EyeOff, HatGlasses, LoaderCircle, PencilLine, TextQuote, Trash2 } from "lucide-react";
+import { Box, CircleAlert, CornerDownRight, Eye, EyeOff, Globe, HatGlasses, LoaderCircle, PencilLine, TextQuote, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import * as React from "react";
@@ -53,9 +53,11 @@ import {
 } from "@/features/chat/model/chat-option-controls";
 import {
   hasProviderTool,
+  isWebCapabilityNativeTool,
   type NativeToolVisualOption,
   nativeToolVisualOptionsFromConfigs,
   setProviderToolEnabled,
+  vendorDefaultWebNativeToolConfigs,
 } from "@/features/chat/model/chat-native-tools";
 import { useOptionalAuthSession } from "@/shared/auth/auth-session-context";
 import { ChatMentionMenuPortal } from "@/features/chat/components/shared/chat-mention-menu";
@@ -507,6 +509,74 @@ function ChatInputComponent({
   const handleNativeToolChange = React.useCallback((tool: NativeToolVisualOption, enabled: boolean) => {
     onOptionsChange((current) => setProviderToolEnabled(current, tool.variants, enabled));
   }, [onOptionsChange]);
+  // Composer web switch: one control for every web-capability native tool (search, browse, URL reading).
+  // When the administrator configured none of them, the backend's vendor defaults apply and turning the
+  // switch off must be signalled explicitly with `options.tools: []`, otherwise the server would re-enable it.
+  const vendorWebToolConfigs = React.useMemo(
+    () => (isMediaMode || !selectedModel
+      ? []
+      : vendorDefaultWebNativeToolConfigs(
+        selectedModel.vendor,
+        modelOptionPolicy?.nativeTools ?? [],
+        selectedProtocols,
+      )),
+    [isMediaMode, modelOptionPolicy?.nativeTools, selectedModel, selectedProtocols],
+  );
+  const vendorWebToolOptions = React.useMemo(
+    () => (vendorWebToolConfigs.length === 0
+      ? []
+      : nativeToolVisualOptionsFromConfigs(
+        vendorWebToolConfigs,
+        [],
+        modelOptionPolicy?.nativeTools ?? [],
+        selectedProtocols,
+      )),
+    [modelOptionPolicy?.nativeTools, selectedProtocols, vendorWebToolConfigs],
+  );
+  const adminWebToolOptions = React.useMemo(
+    () => nativeToolOptions.filter((tool) => isWebCapabilityNativeTool(tool.primary)),
+    [nativeToolOptions],
+  );
+  const adminDeclaredNativeTools = selectedModel
+    ? (selectedModel.nativeTools.length > 0
+      || selectedModel.nativeToolKeys.length > 0
+      || Object.hasOwn(selectedModel.defaultOptions, "tools"))
+    : false;
+  const webToolOptions = adminDeclaredNativeTools ? adminWebToolOptions : vendorWebToolOptions;
+  const usesVendorDefaultWebTools = !adminDeclaredNativeTools && vendorWebToolOptions.length > 0;
+  const webToolsEnabled = React.useMemo(() => {
+    if (webToolOptions.length === 0) {
+      return false;
+    }
+    if (webToolOptions.some((tool) => hasProviderTool(options, tool.variants))) {
+      return true;
+    }
+    if (!usesVendorDefaultWebTools) {
+      return false;
+    }
+    // No explicit selection: the server turns vendor web tools on unless the user opted out.
+    return !(Array.isArray(options.tools) && options.tools.length === 0);
+  }, [options, usesVendorDefaultWebTools, webToolOptions]);
+  const handleWebToolsChange = React.useCallback((enabled: boolean) => {
+    onOptionsChange((current) => {
+      const definitions = webToolOptions.flatMap((tool) => tool.variants);
+      if (definitions.length === 0) {
+        return current;
+      }
+      if (!enabled && usesVendorDefaultWebTools) {
+        const next = setProviderToolEnabled(current, definitions, false);
+        const remaining = Array.isArray(next.tools) ? next.tools.length : 0;
+        return remaining === 0 ? { ...current, tools: [] } : next;
+      }
+      if (enabled && usesVendorDefaultWebTools) {
+        const { tools: currentTools, ...rest } = current;
+        if (!Array.isArray(currentTools) || currentTools.length === 0) {
+          return rest;
+        }
+      }
+      return setProviderToolEnabled(current, definitions, enabled);
+    });
+  }, [onOptionsChange, usesVendorDefaultWebTools, webToolOptions]);
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
   const showHTMLVisualPromptButton = !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
@@ -1242,6 +1312,30 @@ function ChatInputComponent({
             </div>
 
             <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden sm:gap-1.5">
+              {webToolOptions.length > 0 && !isMediaMode ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InputGroupButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
+                        webToolsEnabled && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+                      )}
+                      disabled={loading || uploading || modelLoading}
+                      aria-pressed={webToolsEnabled}
+                      aria-label={webToolsEnabled ? tComposer("webSearchOn") : tComposer("webSearchOff")}
+                      onClick={() => handleWebToolsChange(!webToolsEnabled)}
+                    >
+                      <Globe className="size-4" strokeWidth={1.6} />
+                    </InputGroupButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {webToolsEnabled ? tComposer("webSearchOn") : tComposer("webSearchOff")}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               {selectedModel ? (
                 <ChatModelControls
                   controls={isMediaMode ? mediaControls : selectedModel.controls}

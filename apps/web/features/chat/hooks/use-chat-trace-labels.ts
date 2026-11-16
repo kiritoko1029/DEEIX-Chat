@@ -58,6 +58,7 @@ export type ProcessTraceLabels = {
     };
     names: {
       webSearch: string;
+      readUrl: string;
       codeInterpreter: string;
       imageGeneration: string;
       shell: string;
@@ -78,6 +79,14 @@ export type ProcessTraceLabels = {
       sourceCount: (count: number) => string;
       groundingSupportCount: (count: number) => string;
       exitCode: (code: number) => string;
+      site: string;
+      publishedAt: string;
+      publishedAtWithValue: (date: string) => string;
+      emptyContent: string;
+      offlineFallback: string;
+      readResultsTitle: string;
+      searchResultsTitle: string;
+      openSource: (title: string) => string;
     };
   };
   think: {
@@ -202,6 +211,7 @@ export function useChatTraceLabels(): ProcessTraceLabels {
         },
         names: {
           webSearch: t("tool.names.webSearch"),
+          readUrl: t("tool.names.readUrl"),
           codeInterpreter: t("tool.names.codeInterpreter"),
           imageGeneration: t("tool.names.imageGeneration"),
           shell: t("tool.names.shell"),
@@ -222,6 +232,14 @@ export function useChatTraceLabels(): ProcessTraceLabels {
           sourceCount: (count: number) => t("tool.detail.sourceCount", { count }),
           groundingSupportCount: (count: number) => t("tool.detail.groundingSupportCount", { count }),
           exitCode: (code: number) => t("tool.detail.exitCode", { code }),
+          site: t("tool.detail.site"),
+          publishedAt: t("tool.detail.publishedAt"),
+          publishedAtWithValue: (date: string) => t("tool.detail.publishedAtWithValue", { date }),
+          emptyContent: t("tool.detail.emptyContent"),
+          offlineFallback: t("tool.detail.offlineFallback"),
+          readResultsTitle: t("tool.detail.readResultsTitle"),
+          searchResultsTitle: t("tool.detail.searchResultsTitle"),
+          openSource: (title: string) => t("tool.detail.openSource", { title }),
         },
       },
       think: {

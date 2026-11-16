@@ -91,6 +91,7 @@ func resolveChatModelOptions(options map[string]any, protocol string, cfg modelO
 	}
 
 	nativeTools := nativeProviderToolsFromOption(protocolKey, result["tools"], capabilitiesJSON)
+	nativeTools = applyVendorDefaultNativeTools(protocolKey, cfg.ModelVendor, capabilitiesJSON, result["tools"], nativeTools)
 	delete(result, "tools")
 	for _, path := range hardDeniedModelOptionPaths {
 		deleteModelOptionPath(result, path)

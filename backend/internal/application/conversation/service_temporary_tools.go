@@ -63,36 +63,48 @@ func (s *Service) runTemporaryGeneration(ctx context.Context, input temporaryGen
 
 		var callText strings.Builder
 		var observedUsage llm.Usage
-		llmCallCount++
-		output, err := s.llmClient.GenerateStream(ctx, routeConfig, currentInput, func(event llm.GenerateStreamEvent) error {
-			if event.Usage != (llm.Usage{}) {
-				observedUsage = event.Usage
-				if emitErr := emitLLMUsageEvent(request.OnEvent, addLLMUsage(totalUsage, observedUsage)); emitErr != nil {
-					return emitErr
+		streamCall := func(callInput llm.GenerateInput) (*llm.GenerateOutput, error) {
+			return s.llmClient.GenerateStream(ctx, routeConfig, callInput, func(event llm.GenerateStreamEvent) error {
+				if event.Usage != (llm.Usage{}) {
+					observedUsage = event.Usage
+					if emitErr := emitLLMUsageEvent(request.OnEvent, addLLMUsage(totalUsage, observedUsage)); emitErr != nil {
+						return emitErr
+					}
 				}
-			}
-			if traceRecorder != nil && event.Reasoning != nil && event.Reasoning.Text != "" {
-				traceRecorder.appendUpstreamReasoning(event.Reasoning.Kind, event.Reasoning.Text, reasoningPayload(event.Reasoning))
-				if strings.EqualFold(strings.TrimSpace(event.Reasoning.Status), "completed") {
+				if traceRecorder != nil && event.Reasoning != nil && event.Reasoning.Text != "" {
+					traceRecorder.appendUpstreamReasoning(event.Reasoning.Kind, event.Reasoning.Text, reasoningPayload(event.Reasoning))
+					if strings.EqualFold(strings.TrimSpace(event.Reasoning.Status), "completed") {
+						traceRecorder.completeUpstreamThink()
+					}
+				}
+				if event.Delta == "" {
+					return nil
+				}
+				if firstTokenLatency == 0 {
+					firstTokenLatency = time.Since(startedAt).Milliseconds()
+				}
+				if traceRecorder != nil {
+					traceRecorder.completeProcess()
 					traceRecorder.completeUpstreamThink()
 				}
-			}
-			if event.Delta == "" {
+				callText.WriteString(event.Delta)
+				if onDelta != nil {
+					return onDelta(event.Delta)
+				}
 				return nil
-			}
-			if firstTokenLatency == 0 {
-				firstTokenLatency = time.Since(startedAt).Milliseconds()
-			}
-			if traceRecorder != nil {
-				traceRecorder.completeProcess()
-				traceRecorder.completeUpstreamThink()
-			}
-			callText.WriteString(event.Delta)
-			if onDelta != nil {
-				return onDelta(event.Delta)
-			}
-			return nil
-		})
+			})
+		}
+		llmCallCount++
+		output, err := streamCall(currentInput)
+		if err != nil && callText.Len() == 0 && observedUsage == (llm.Usage{}) &&
+			llmCallCount < s.resolveMaxLLMCallsPerRun() &&
+			hasVendorNativeTools(currentInput.Options) && shouldRetryWithoutNativeTools(err) {
+			// 临时对话同样按“上游拒绝原生工具”回退一次；此时还没有任何增量或用量，重发安全。
+			llmCallCount++
+			currentInput.Options = withoutVendorNativeTools(currentInput.Options)
+			recordNativeToolsFallbackTrace(traceRecorder, err)
+			output, err = streamCall(currentInput)
+		}
 		if output == nil {
 			output = &llm.GenerateOutput{}
 		}

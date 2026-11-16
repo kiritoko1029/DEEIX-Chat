@@ -68,6 +68,8 @@ type routeGenerationPlan struct {
 	statefulContinuation      bool
 	promptMode                string
 	promptShape               promptShape
+	// nativeToolsFallback 表示本路由已因上游拒绝而剥离厂商原生工具，最多回退一次。
+	nativeToolsFallback bool
 }
 
 // prepareRouteGeneration 把路由级提示词规划固化为一次上游调用的请求形状：过滤模型参数、配置提示词
@@ -96,6 +98,7 @@ func (s *Service) prepareRouteGeneration(ctx context.Context, input routeGenerat
 		AllowedPathsJSON:      cfg.ModelOptionAllowedPaths,
 		DeniedPathsJSON:       cfg.ModelOptionDeniedPaths,
 		ModelCapabilitiesJSON: route.ModelCapabilitiesJSON,
+		ModelVendor:           route.ModelVendor,
 		CatalogReasoning:      route.CatalogReasoning,
 		Controls:              messageInput.Controls,
 	})
@@ -223,6 +226,8 @@ type messageGenerationRunner struct {
 	streamedText                strings.Builder
 	responsesBackgroundRecovery openAIResponsesBackgroundRecoveryState
 	lastAttemptObservation      *generationAttemptObservation
+	// nativeToolsPeeled 表示本路由已因上游拒绝剥离厂商原生工具，后续调用不再声明。
+	nativeToolsPeeled bool
 }
 
 // emitVisibleDelta 把一段可见增量交给客户端回调，并记录首字延迟与累计可见文本。
@@ -253,6 +258,8 @@ func (r *messageGenerationRunner) beginRouteFailover(routeConfig llm.RouteConfig
 	r.routeConfig = routeConfig
 	r.attemptHadSideEffect = false
 	r.streamedText.Reset()
+	// 新路由可能确实支持原生工具，重新按该路由的请求形状尝试。
+	r.nativeToolsPeeled = false
 }
 
 func (r *messageGenerationRunner) warn(ctx context.Context, event string, route *channel.ResolvedRoute, err error) {
@@ -543,7 +550,49 @@ func (r *messageGenerationRunner) runRouteAttempt(ctx context.Context, plan *rou
 		sendSpan.SetAttributes(promptShapeTraceAttributes("conversation.prompt_retry", plan.promptShape)...)
 		output, attemptErr = r.generate(ctx, plan.generateInput, plan.fullLLMMessages)
 	}
+	if !r.attemptHadSideEffect && r.llmRequestCount < r.maxLLMCalls &&
+		!plan.nativeToolsFallback &&
+		hasVendorNativeTools(plan.generateInput.Options) &&
+		r.lastAttemptObservation.canRetry(attemptErr, shouldRetryWithoutNativeTools) {
+		r.warn(ctx, "native_tools_rejected_retry_without_tools", plan.route, attemptErr)
+		plan.generateInput.Options = withoutVendorNativeTools(plan.generateInput.Options)
+		plan.filteredOptions = plan.generateInput.Options
+		plan.nativeToolsFallback = true
+		r.nativeToolsPeeled = true
+		plan.estimatedPromptTokens = estimateGenerateInputTokens(plan.generateInput)
+		recordNativeToolsFallbackTrace(r.traceRecorder, attemptErr)
+		output, attemptErr = r.generate(ctx, plan.generateInput, plan.fullLLMMessages)
+	}
 	return output, attemptErr
+}
+
+// generateWithNativeToolsFallback 在工具回灌等后续上游调用上复用同一条原生工具回退规则：
+// 上游明确拒绝 DeepSeek 原生联网工具时剔除声明并重发一次，同时写回 currentInput 让后续调用不再重复失败。
+func (r *messageGenerationRunner) generateWithNativeToolsFallback(
+	ctx context.Context,
+	route *channel.ResolvedRoute,
+	currentInput *llm.GenerateInput,
+	fullMessages []llm.Message,
+) (*llm.GenerateOutput, error) {
+	if currentInput == nil {
+		return r.generate(ctx, llm.GenerateInput{}, fullMessages)
+	}
+	if r.nativeToolsPeeled {
+		currentInput.Options = withoutVendorNativeTools(currentInput.Options)
+	}
+	output, err := r.generate(ctx, *currentInput, fullMessages)
+	if err == nil || r.attemptHadSideEffect || r.llmRequestCount >= r.maxLLMCalls {
+		return output, err
+	}
+	if !hasVendorNativeTools(currentInput.Options) ||
+		!r.lastAttemptObservation.canRetry(err, shouldRetryWithoutNativeTools) {
+		return output, err
+	}
+	r.warn(ctx, "native_tools_rejected_retry_without_tools", route, err)
+	r.nativeToolsPeeled = true
+	currentInput.Options = withoutVendorNativeTools(currentInput.Options)
+	recordNativeToolsFallbackTrace(r.traceRecorder, err)
+	return r.generate(ctx, *currentInput, fullMessages)
 }
 
 // mergeFollowUpUsage 把工具回灌后一次调用的用量并入本条消息累计：上游有观测值时以累计观测为准，

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/pkg/textutil"
+
 	portllm "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/ports/llm"
 )
 
@@ -438,6 +440,8 @@ func normalizeAnthropicNativeTools(payload map[string]any) {
 
 func anthropicNativeToolName(toolType string) string {
 	switch strings.TrimSpace(toolType) {
+	case "deepseek_web_search", "deepseek_read_url":
+		return strings.TrimSpace(toolType)
 	case "web_search_20250305", "web_search_20260209":
 		return "web_search"
 	case "web_fetch_20250910", "web_fetch_20260209":
@@ -516,6 +520,8 @@ func (c anthropicToolClassifier) isUnsupportedNativeClientToolUse(toolName strin
 func isAnthropicNativeToolType(toolType string) bool {
 	switch strings.TrimSpace(toolType) {
 	case "web_search_20250305",
+		"deepseek_web_search",
+		"deepseek_read_url",
 		"web_search_20260209",
 		"web_fetch_20250910",
 		"web_fetch_20260209",
@@ -901,9 +907,21 @@ func parseAnthropicResponse(body []byte, classifier anthropicToolClassifier) (*p
 		ToolCalls:           toolCalls,
 		ServerToolCalls:     parseAnthropicServerToolUse(parsed),
 		ServerSideToolUsage: parseAnthropicServerSideToolUsage(parsed),
+		Citations:           parseAnthropicCitations(parsed),
 		RawJSON:             string(body),
 	}
 	return result, nil
+}
+
+func parseAnthropicCitations(parsed map[string]any) []string {
+	var result []string
+	for _, raw := range asSlice(parsed["content"]) {
+		block := asMap(raw)
+		if getString(block["type"]) == "text" {
+			result = appendUniqueStrings(result, parseResponseCitations(map[string]any{"citations": block["citations"]})...)
+		}
+	}
+	return result
 }
 
 // extractAnthropicText 从 content 数组中提取所有 text block 的文字。
@@ -972,6 +990,9 @@ func parseAnthropicServerSideToolUsage(parsed map[string]any) map[string]int64 {
 	}
 	if len(raw) == 0 {
 		return nil
+	}
+	if usage, ok := parseDeepSeekServerToolUsage(raw); ok {
+		return usage
 	}
 	result := make(map[string]int64, len(raw))
 	for key, value := range raw {
@@ -1047,6 +1068,9 @@ func parseAnthropicServerToolUse(parsed map[string]any) []portllm.ToolCall {
 				ArgumentsJSON: arguments,
 				Status:        "completed",
 			}
+			if kind := getString(block["kind"]); kind != "" {
+				toolCall.OutputJSON, _ = nativeWebToolOutputJSON(map[string]any{"kind": kind}, asMap(block["input"]), "search")
+			}
 			if toolCall.ToolCallID != "" {
 				indexByID[toolCall.ToolCallID] = len(items)
 			}
@@ -1060,12 +1084,7 @@ func parseAnthropicServerToolUse(parsed map[string]any) []portllm.ToolCall {
 			if !ok {
 				continue
 			}
-			output := anthropicServerToolResultOutputJSON(block)
-			if output == "" {
-				output = "{}"
-			}
-			items[index].OutputJSON = output
-			items[index].Status = "completed"
+			items[index] = mergeAnthropicServerToolResult(items[index], block)
 		}
 	}
 	if items == nil {
@@ -1284,19 +1303,25 @@ func applyAnthropicStreamEvent(
 				Status:        "requested",
 			})
 		case "server_tool_use":
-			toolCall := upsertAnthropicStreamServerToolCall(result, index, portllm.ToolCall{
+			item := portllm.ToolCall{
 				ToolCallID:    strings.TrimSpace(getString(block["id"])),
 				ToolType:      strings.TrimSpace(getString(block["type"])),
 				ToolName:      strings.TrimSpace(getString(block["name"])),
 				ArgumentsJSON: normalizeJSONString(block["input"]),
 				Status:        "in_progress",
-			})
+			}
+			if kind := getString(block["kind"]); kind != "" {
+				item.OutputJSON, _ = nativeWebToolOutputJSON(map[string]any{"kind": kind}, asMap(block["input"]), "search")
+			}
+			toolCall := upsertAnthropicStreamServerToolCall(result, index, item)
 			if onEvent != nil {
 				return onEvent(portllm.GenerateStreamEvent{
 					ServerToolCall: &toolCall,
 					ResponseID:     result.ResponseID,
 				})
 			}
+		case "text":
+			result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(map[string]any{"citations": block["citations"]})...)
 		default:
 			if isAnthropicServerToolResultBlockType(strings.TrimSpace(getString(block["type"]))) {
 				toolCall, ok := mergeAnthropicStreamServerToolResult(result, block)
@@ -1315,6 +1340,10 @@ func applyAnthropicStreamEvent(
 	case "content_block_delta":
 		delta := asMap(parsed["delta"])
 		deltaType := strings.TrimSpace(getString(delta["type"]))
+		if deltaType == "citations_delta" {
+			result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(map[string]any{"citations": []any{delta["citation"]}})...)
+			return nil
+		}
 		if deltaType == "text_delta" {
 			text := getString(delta["text"])
 			if text == "" {
@@ -1523,6 +1552,9 @@ func upsertAnthropicStreamServerToolCall(result *portllm.GenerateOutput, index i
 	if strings.TrimSpace(item.Status) != "" {
 		current.Status = item.Status
 	}
+	if item.OutputJSON != "" {
+		current.OutputJSON = item.OutputJSON
+	}
 	result.ServerToolCalls[index] = current
 	return current
 }
@@ -1556,19 +1588,49 @@ func mergeAnthropicStreamServerToolResult(result *portllm.GenerateOutput, block 
 		if strings.TrimSpace(item.ToolCallID) != toolUseID {
 			continue
 		}
-		item.OutputJSON = anthropicServerToolResultOutputJSON(block)
-		if item.OutputJSON == "" {
-			item.OutputJSON = "{}"
-		}
-		item.Status = "completed"
+		item = mergeAnthropicServerToolResult(item, block)
 		result.ServerToolCalls[index] = item
 		return item, true
 	}
 	return portllm.ToolCall{}, false
 }
 
-func anthropicServerToolResultOutputJSON(block map[string]any) string {
-	return normalizeJSONString(sanitizeAnthropicServerToolResultValue(block))
+// mergeAnthropicServerToolResult keeps the display projection identical for both transports.
+func mergeAnthropicServerToolResult(call portllm.ToolCall, block map[string]any) portllm.ToolCall {
+	call.Status = "completed"
+	blockType := strings.TrimSpace(getString(block["type"]))
+	if blockType != "web_search_tool_result" && blockType != "web_fetch_tool_result" {
+		call.OutputJSON = normalizeJSONString(sanitizeAnthropicServerToolResultValue(block))
+		return call
+	}
+	input := decodeToolResultObject(call.ArgumentsJSON)
+	previous := decodeToolResultObject(call.OutputJSON)
+	payload := map[string]any{"kind": textutil.FirstNonEmpty(getString(block["kind"]), getString(previous["kind"]))}
+	defaultKind := "search"
+	if blockType == "web_fetch_tool_result" {
+		defaultKind = "read_link"
+		content := asMap(block["content"])
+		payload["page"] = map[string]any{
+			"url": content["url"], "title": asMap(content["content"])["title"],
+		}
+		if publishedAt, ok := content["published_at"]; ok {
+			asMap(payload["page"])["published_at"] = publishedAt
+		}
+		payload["error"] = content
+	} else {
+		payload["sources"] = block["content"]
+		payload["error"] = block["content"]
+	}
+	if call.ToolName == "deepseek_read_url" {
+		defaultKind = "read_link"
+	}
+	var errorCode string
+	call.OutputJSON, errorCode = nativeWebToolOutputJSON(payload, input, defaultKind)
+	if errorCode != "" {
+		call.Status = "failed"
+		call.ErrorJSON = normalizeJSONString(map[string]any{"code": errorCode})
+	}
+	return call
 }
 
 func sanitizeAnthropicServerToolResultValue(value any) any {
@@ -1595,7 +1657,7 @@ func sanitizeAnthropicServerToolResultValue(value any) any {
 
 func isAnthropicOpaqueToolResultKey(key string) bool {
 	switch strings.TrimSpace(key) {
-	case "encrypted_content", "encryptedContent":
+	case "encrypted_content", "encryptedContent", "signature":
 		return true
 	default:
 		return false

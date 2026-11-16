@@ -1,6 +1,6 @@
 import { parseJSON } from "@/shared/lib/type-guards";
 
-export type ToolResultCategory = "web_search" | "code_execution" | "image_generation" | "shell" | "generic";
+export type ToolResultCategory = "web_search" | "web_read" | "code_execution" | "image_generation" | "shell" | "generic";
 
 export type ToolResultDescriptor = {
   name?: string;
@@ -13,6 +13,11 @@ export type ToolSearchSource = {
   url: string;
   title: string;
   snippet: string;
+  siteName?: string;
+  siteIcon?: string;
+  publishedAt?: string;
+  imageUrl?: string;
+  kind?: string;
 };
 
 const TOOL_PAYLOAD_MAX_DEPTH = 24;
@@ -35,6 +40,10 @@ const SEARCH_CONTAINER_KEYS = new Set([
 const SEARCH_URL_KEYS = ["url", "uri", "link", "href", "retrievedUrl", "retrieved_url", "sourceUrl", "source_url"];
 const SEARCH_TITLE_KEYS = ["title", "name", "pageTitle", "page_title"];
 const SEARCH_SNIPPET_KEYS = ["snippet", "description", "summary", "excerpt", "content", "text"];
+const SEARCH_SITE_NAME_KEYS = ["site_name", "siteName"];
+const SEARCH_SITE_ICON_KEYS = ["site_icon", "siteIcon"];
+const SEARCH_PUBLISHED_AT_KEYS = ["published_at", "publishedAt", "page_age"];
+const SEARCH_IMAGE_URL_KEYS = ["image_url", "imageUrl"];
 const SEARCH_LABELED_SOURCE_PATTERN = /(?:^|\n|["'])\s*(?:title|标题)\s*[:：]\s*([^\r\n]+)\r?\n\s*(?:url|链接)\s*[:：]\s*(https?:\/\/[^\s]+)/gim;
 const SEARCH_MARKDOWN_SOURCE_PATTERN = /\[([^\]\r\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
@@ -190,6 +199,11 @@ export function collectToolSearchSources(value: unknown): ToolSearchSource[] {
         url: firstToolPayloadString(item, SEARCH_URL_KEYS),
         title: firstToolPayloadString(item, SEARCH_TITLE_KEYS),
         snippet: firstToolPayloadString(item, SEARCH_SNIPPET_KEYS),
+        siteName: firstToolPayloadString(item, SEARCH_SITE_NAME_KEYS) || undefined,
+        siteIcon: firstToolPayloadString(item, SEARCH_SITE_ICON_KEYS) || undefined,
+        publishedAt: firstToolPayloadString(item, SEARCH_PUBLISHED_AT_KEYS) || undefined,
+        imageUrl: firstToolPayloadString(item, SEARCH_IMAGE_URL_KEYS) || undefined,
+        kind: readToolPayloadString(item.kind) || undefined,
       });
     }
   });
@@ -200,15 +214,27 @@ function addSearchSource(sources: Map<string, ToolSearchSource>, source: ToolSea
   if (sources.size >= TOOL_PAYLOAD_MAX_RESULTS) return;
   const url = normalizeHTTPLink(source.url.replace(/[.,;:!?，。；：！？\])}'"]+$/u, ""));
   if (!url) return;
-  const next = { url, title: source.title.trim(), snippet: source.snippet.trim() };
+  const next: ToolSearchSource = {
+    url,
+    title: source.title.trim(),
+    snippet: source.snippet.trim(),
+    siteName: source.siteName?.trim() || undefined,
+    siteIcon: normalizeHTTPLink(source.siteIcon || "") || undefined,
+    publishedAt: source.publishedAt?.trim() || undefined,
+    imageUrl: normalizeHTTPLink(source.imageUrl || "") || undefined,
+    kind: source.kind?.trim() || undefined,
+  };
   const current = sources.get(url);
-  if (!current || (!current.title && next.title) || (!current.snippet && next.snippet)) {
-    sources.set(url, {
-      url,
-      title: current?.title || next.title,
-      snippet: current?.snippet || next.snippet,
-    });
-  }
+  sources.set(url, {
+    url,
+    title: current?.title || next.title,
+    snippet: current?.snippet || next.snippet,
+    siteName: current?.siteName || next.siteName,
+    siteIcon: current?.siteIcon || next.siteIcon,
+    publishedAt: current?.publishedAt || next.publishedAt,
+    imageUrl: current?.imageUrl || next.imageUrl,
+    kind: current?.kind || next.kind,
+  });
 }
 
 function collectTextSearchSources(value: string, sources: Map<string, ToolSearchSource>) {
@@ -268,15 +294,20 @@ function includesNormalizedIdentifier(values: Array<string | undefined>, candida
   return candidates.some((candidate) => normalized.some((value) => value.includes(candidate)));
 }
 
+function hasReadURLSemantics(name: string | undefined, type: string | undefined): boolean {
+  return includesNormalizedIdentifier(
+    [name, type],
+    ["deepseek_read_url", "read_url", "read_page", "web_fetch", "open_page"],
+  );
+}
+
 function hasSearchSemantics(name: string | undefined, type: string | undefined): boolean {
   const values = [name, type];
   const tokens = identifierTokens(...values);
   if (tokens.has("search") || tokens.has("browse") || tokens.has("crawler") || tokens.has("crawling")) {
     return true;
   }
-  if (includesNormalizedIdentifier(values, ["url_context", "web_fetch", "open_page", "read_url", "read_page"])) {
-    return true;
-  }
+  if (includesNormalizedIdentifier(values, ["url_context"])) return true;
   return tokens.has("reader") && (tokens.has("url") || tokens.has("web") || tokens.has("page"));
 }
 
@@ -301,6 +332,7 @@ export function resolveToolResultCategory(descriptor: ToolResultDescriptor): Too
   const { name, type, input, output } = descriptor;
   const values = [name, type];
 
+  if (hasReadURLSemantics(name, type)) return "web_read";
   if (
     hasSearchSemantics(name, type)
     || (collectToolSearchSources(output).length > 0 && (hasSearchPayloadShape(output) || hasQueryInput(input)))

@@ -157,6 +157,7 @@ func (s *Service) StreamTemporaryChat(
 		AllowedPathsJSON:      cfg.ModelOptionAllowedPaths,
 		DeniedPathsJSON:       cfg.ModelOptionDeniedPaths,
 		ModelCapabilitiesJSON: route.ModelCapabilitiesJSON,
+		ModelVendor:           route.ModelVendor,
 		CatalogReasoning:      route.CatalogReasoning,
 		Controls:              input.Controls,
 	})

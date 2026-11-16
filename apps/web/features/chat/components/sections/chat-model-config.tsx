@@ -723,6 +723,8 @@ function resolveNativeToolGroupTitle(provider: string, fallback: string, tCompos
       return tComposer("nativeTools.claude");
     case "google":
       return tComposer("nativeTools.google");
+    case "deepseek":
+      return tComposer("nativeTools.deepseek");
     case "openai":
       return tComposer("nativeTools.openai");
     case "xai":

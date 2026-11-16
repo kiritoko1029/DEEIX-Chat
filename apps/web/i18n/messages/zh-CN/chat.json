@@ -496,6 +496,8 @@
     }
   },
   "composer": {
+    "webSearchOn": "联网搜索已开启，点击关闭",
+    "webSearchOff": "联网搜索已关闭，点击开启",
     "uploadFile": "上传文件",
     "screenshot": "屏幕截图",
     "openTools": "菜单",
@@ -698,7 +700,8 @@
       "grok": "Grok 原生工具",
       "openai": "OpenAI 原生工具",
       "claude": "Claude 原生工具",
-      "google": "Google 原生工具"
+      "google": "Google 原生工具",
+      "deepseek": "DeepSeek 原生工具"
     },
     "output": "输出形式",
     "advancedOptions": "高级参数配置"
@@ -822,7 +825,8 @@
         "failed": "失败"
       },
       "names": {
-        "webSearch": "网页搜索",
+        "webSearch": "联网搜索",
+        "readUrl": "阅读链接",
         "codeInterpreter": "代码解释器",
         "imageGeneration": "图像生成",
         "shell": "Shell",
@@ -843,6 +847,14 @@
         "sourceCount": "{count} 个来源",
         "groundingSupportCount": "{count} 条引用依据",
         "exitCode": "退出码 {code}",
+        "site": "站点",
+        "publishedAt": "发布时间",
+        "publishedAtWithValue": "发布于 {date}",
+        "emptyContent": "未获取到内容",
+        "offlineFallback": "已回退为无联网回答",
+        "readResultsTitle": "阅读的链接",
+        "searchResultsTitle": "搜索到的网页",
+        "openSource": "打开 {title}",
         "viewFullResult": "查看完整结果",
         "fullResultTitle": "工具调用完整结果",
         "loadingFullResult": "正在加载完整结果",
@@ -1084,6 +1096,8 @@
     "web_search": "控制是否启用原生联网搜索。"
   },
   "nativeToolDescriptions": {
+    "deepseek__web_search": "使用 DeepSeek 联网搜索获取实时网页信息。",
+    "deepseek__read_url": "使用 DeepSeek 阅读指定链接的网页内容。",
     "openai__web_search": "使用 OpenAI 托管网页搜索获取实时信息。",
     "openai__web_search_preview": "使用 OpenAI 托管网页搜索预览工具获取实时信息。",
     "openai__shell": "使用 OpenAI 托管 Shell 容器执行命令。",
@@ -1122,6 +1136,8 @@
     "claudeToolSearchBm25": "Claude 原生工具搜索（BM25）"
   },
   "nativeToolLabels": {
+    "deepseek__web_search": "联网搜索",
+    "deepseek__read_url": "阅读链接",
     "openai__web_search": "网页搜索",
     "openai__web_search_preview": "网页搜索预览",
     "openai__shell": "Shell",

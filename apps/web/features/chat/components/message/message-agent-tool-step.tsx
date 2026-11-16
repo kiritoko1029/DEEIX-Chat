@@ -1,8 +1,10 @@
 "use client";
 
+import { useLocale } from "next-intl";
+import { useState } from "react";
 import type * as React from "react";
 
-import { ArrowUpRight, Check, Copy, Wrench } from "lucide-react";
+import { ArrowUpRight, Check, Copy, Globe, Wrench } from "lucide-react";
 
 import { AgentTraceStep } from "@/features/chat/components/message/message-agent-trace-step";
 import { MessageToolResultDialog } from "@/features/chat/components/message/message-tool-result-dialog";
@@ -136,6 +138,8 @@ function toolTraceCallLabel(call: ToolTraceCall, category: ToolResultCategory, l
   switch (category) {
     case "web_search":
       return labels.tool.names.webSearch;
+    case "web_read":
+      return labels.tool.names.readUrl;
     case "code_execution":
       return labels.tool.names.codeInterpreter;
     case "image_generation":
@@ -199,36 +203,104 @@ function normalizeToolLink(value: string): string {
   }
 }
 
-function ToolSearchSources({ sources, labels }: { sources: ToolSearchSource[]; labels: ProcessTraceLabels }) {
+function formatToolPublishedAt(value: string | undefined, locale: string): string {
+  const text = value?.trim() || "";
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+}
+
+function ToolSourceFavicon({ src }: { src?: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border/30 bg-background">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="size-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <Globe aria-hidden="true" className="size-3 text-muted-foreground/62" />
+      )}
+    </span>
+  );
+}
+
+function ToolSourceThumbnail({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      className="size-16 shrink-0 rounded-md border border-border/30 bg-muted object-cover sm:size-20"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function ToolSearchSources({
+  sources,
+  labels,
+  locale,
+}: {
+  sources: ToolSearchSource[];
+  labels: ProcessTraceLabels;
+  locale: string;
+}) {
   const unique = sources
     .flatMap((source) => {
       const url = normalizeToolLink(source.url);
       return url ? [{ ...source, url }] : [];
     })
-    .slice(0, 8);
+    .slice(0, 12);
   if (unique.length === 0) return null;
   return (
-    <div className="divide-y divide-border/20">
-      {unique.map((source, index) => (
-        <a
-          key={`${source.url}-${index}`}
-          href={source.url}
-          target="_blank"
-          rel="noreferrer"
-          className="group/tool-source flex min-w-0 items-center gap-2 py-2 transition-colors"
-          title={source.url}
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-medium leading-5 text-foreground/80 transition-colors group-hover/tool-source:text-foreground">
-              {source.title || safeURLHostname(source.url) || labels.tool.detail.sourceFallback(index + 1)}
-            </span>
-            <span className="block min-w-0 truncate text-[11px] leading-4 text-muted-foreground/62">
-              {[safeURLHostname(source.url), source.snippet].filter(Boolean).join(" · ")}
-            </span>
-          </span>
-          <ArrowUpRight className="size-3 shrink-0 text-muted-foreground/38 transition-colors group-hover/tool-source:text-muted-foreground/72" />
-        </a>
-      ))}
+    <div className="space-y-2">
+      {unique.map((source, index) => {
+        const title = source.title || safeURLHostname(source.url) || labels.tool.detail.sourceFallback(index + 1);
+        const publishedAt = formatToolPublishedAt(source.publishedAt, locale);
+        return (
+          <div
+            key={`${source.url}-${index}`}
+            className="group/tool-source flex min-w-0 gap-2.5 rounded-md border border-border/35 bg-muted/20 px-2.5 py-2 transition-colors hover:bg-muted/35"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] leading-4 text-muted-foreground/58">
+                <ToolSourceFavicon src={source.siteIcon} />
+                <span className="min-w-0 truncate" title={labels.tool.detail.site}>
+                  {source.siteName || safeURLHostname(source.url)}
+                </span>
+                {publishedAt ? <span title={source.publishedAt}>· {labels.tool.detail.publishedAtWithValue(publishedAt)}</span> : null}
+              </div>
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={labels.tool.detail.openSource(title)}
+                title={source.url}
+                className="mt-0.5 flex min-w-0 items-start gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
+              >
+                <span className="line-clamp-2 min-w-0 text-[12px] font-medium leading-5 text-foreground/80 transition-colors group-hover/tool-source:text-foreground">
+                  {title}
+                </span>
+                <ArrowUpRight className="mt-1 size-3 shrink-0 text-muted-foreground/38 transition-colors group-hover/tool-source:text-muted-foreground/72" />
+              </a>
+              {source.snippet ? (
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground/68">{source.snippet}</p>
+              ) : null}
+            </div>
+            {source.imageUrl ? <ToolSourceThumbnail src={source.imageUrl} /> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -325,6 +397,11 @@ function toolSearchSources(call: ToolTraceCall): ToolSearchSource[] {
         url: source.url,
         title: current?.title || source.title,
         snippet: current?.snippet || source.snippet,
+        siteName: current?.siteName || source.siteName,
+        siteIcon: current?.siteIcon || source.siteIcon,
+        publishedAt: current?.publishedAt || source.publishedAt,
+        imageUrl: current?.imageUrl || source.imageUrl,
+        kind: current?.kind || source.kind,
       });
     }
   }
@@ -356,6 +433,23 @@ function toolDisplayText(call: ToolTraceCall): string {
     if (text) return text;
   }
   return readToolPayloadString(parseToolPayload(call.output_preview));
+}
+
+function toolFailureReason(call: ToolTraceCall): string {
+  const direct = call.error?.trim() || "";
+  if (direct) {
+    const parsed = parseToolPayload(direct);
+    if (isToolPayloadRecord(parsed)) {
+      return firstToolPayloadString(parsed, ["code", "error_code", "message", "error"]) || direct;
+    }
+    return direct;
+  }
+  for (const payload of toolOutputPayloads(call)) {
+    if (!isToolPayloadRecord(payload)) continue;
+    const reason = firstToolPayloadString(payload, ["error_code", "message", "error"]);
+    if (reason) return reason;
+  }
+  return "";
 }
 
 function toolSearchSummary(output: unknown, sources: ToolSearchSource[], labels: ProcessTraceLabels): string {
@@ -686,13 +780,34 @@ function ToolResultCard({
   labels: ProcessTraceLabels;
   divided: boolean;
 }) {
+  const locale = useLocale();
   const failedStatus = isToolTraceStatusFailed(call.status);
   const output = toolOutputPayload(call);
   let content: React.ReactNode = null;
   let meta = "";
 
-  if (failedStatus) {
-    const errorText = call.error?.trim();
+  if (category === "web_read") {
+    const sources = toolSearchSources(call);
+    const narrative = toolSearchNarrative(call);
+    const errorText = toolFailureReason(call);
+    content = (
+      <>
+        {sources.length > 0 ? <ToolSearchSources sources={sources} labels={labels} locale={locale} /> : null}
+        {narrative ? <ToolReadableText>{narrative}</ToolReadableText> : null}
+        {errorText ? (
+          <div role="alert" className="rounded-md bg-destructive/5 px-2.5 py-2 text-[11px] leading-4 text-destructive/85">
+            {labels.tool.detail.error}: {errorText}
+          </div>
+        ) : null}
+        {sources.length === 0 && !narrative && !errorText ? (
+          <div className="rounded-md bg-muted/20 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground/68">
+            {labels.tool.detail.emptyContent}
+          </div>
+        ) : null}
+      </>
+    );
+  } else if (failedStatus) {
+    const errorText = toolFailureReason(call);
     if (errorText) {
       content = <ToolPre failed>{errorText}</ToolPre>;
     }
@@ -705,7 +820,7 @@ function ToolResultCard({
       content = (
         <>
           {narrative ? <ToolReadableText>{narrative}</ToolReadableText> : null}
-          {sources.length > 0 ? <ToolSearchSources sources={sources} labels={labels} /> : null}
+          {sources.length > 0 ? <ToolSearchSources sources={sources} labels={labels} locale={locale} /> : null}
         </>
       );
     }
@@ -760,11 +875,16 @@ function ToolResultCard({
     return null;
   }
   const showHeading = category !== "generic" || Boolean(meta);
+  const resultTitle = category === "web_search"
+    ? labels.tool.detail.searchResultsTitle
+    : category === "web_read"
+      ? labels.tool.detail.readResultsTitle
+      : labels.tool.detail.resultTitle;
   return (
     <div className={cn("pb-1 pt-1", divided && "mt-1.5 pt-1.5")}>
       {showHeading ? (
         <div className="mb-1 flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground/58">
-          <span className="font-medium">{labels.tool.detail.resultTitle}</span>
+          <span className="font-medium">{resultTitle}</span>
           {meta ? <span>· {meta}</span> : null}
         </div>
       ) : null}
@@ -855,7 +975,7 @@ export function AgentToolStepRow({
     <li className="group/agent-trace-step">
       <AgentTraceStep
         icon={<ToolStepStatusIcon step={step} active={active} />}
-        title={labels.tool.names.generic}
+        title={step.label}
         status={statusText || undefined}
         duration={durationText}
         open={open}

@@ -42,6 +42,8 @@ type modelOptionPolicyConfig struct {
 	AllowedPathsJSON      string
 	DeniedPathsJSON       string
 	ModelCapabilitiesJSON string
+	// ModelVendor 是路由上解析出的技术厂商，用于按厂商默认开启官方原生工具。
+	ModelVendor string
 	// CatalogReasoning 为 models.dev 目录在路由协议上推导出的推理能力，只在模型未显式声明且无法由旧配置推断时生效。
 	CatalogReasoning *domainchannel.ReasoningCapability
 	// Controls 为用户在模型控件上的选择，只用于聊天链路（resolveChatModelOptions）。
@@ -68,6 +70,7 @@ func filterModelOptions(options map[string]any, protocol string, cfg modelOption
 		return nil
 	}
 	nativeTools := nativeProviderToolsFromOption(protocolKey, policyOptions["tools"], cfg.ModelCapabilitiesJSON)
+	nativeTools = applyVendorDefaultNativeTools(protocolKey, cfg.ModelVendor, cfg.ModelCapabilitiesJSON, policyOptions["tools"], nativeTools)
 	delete(policyOptions, "tools")
 	denied := append([][]string{}, hardDeniedModelOptionPaths...)
 

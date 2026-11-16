@@ -15,8 +15,11 @@ const (
 
 // Definition 描述后端已适配、可由管理员开启的厂商官方原生工具。
 type Definition struct {
-	Protocol         string
-	Provider         string
+	Protocol string
+	Provider string
+	// Vendor 是可选的技术厂商标识（openai/anthropic/deepseek/xai/google）。
+	// 为空表示该定义按协议通用；配置后可用于按模型厂商默认开启或隔离同名能力。
+	Vendor           string
 	Type             string
 	Key              string
 	Label            string
@@ -402,6 +405,84 @@ var definitions = []Definition{
 		PriceLabel:     "notMetered",
 		UsageAliases:   []string{"url_context"},
 	},
+	{
+		Protocol:       "anthropic_messages",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_web_search",
+		Key:            "deepseek.web_search",
+		Label:          "Web Search",
+		Description:    "DeepSeek hosted web search with citations.",
+		Payload:        map[string]any{"type": "deepseek_web_search", "name": "deepseek_web_search"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_web_search", "tool_search"},
+	},
+	{
+		Protocol:       "anthropic_messages",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_read_url",
+		Key:            "deepseek.read_url",
+		Label:          "Read URL",
+		Description:    "DeepSeek hosted URL reader for links in the user message.",
+		Payload:        map[string]any{"type": "deepseek_read_url", "name": "deepseek_read_url"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_read_url", "tool_fetch"},
+	},
+	{
+		Protocol:       "openai_responses",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_web_search",
+		Key:            "deepseek.web_search",
+		Label:          "Web Search",
+		Description:    "DeepSeek hosted web search with citations.",
+		Payload:        map[string]any{"type": "deepseek_web_search"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_web_search", "tool_search"},
+	},
+	{
+		Protocol:       "openai_responses",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_read_url",
+		Key:            "deepseek.read_url",
+		Label:          "Read URL",
+		Description:    "DeepSeek hosted URL reader for links in the user message.",
+		Payload:        map[string]any{"type": "deepseek_read_url"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_read_url", "tool_fetch"},
+	},
+	{
+		Protocol:       "openai_chat_completions",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_web_search",
+		Key:            "deepseek.web_search",
+		Label:          "Web Search",
+		Description:    "DeepSeek hosted web search with citations.",
+		Payload:        map[string]any{"type": "deepseek_web_search"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_web_search", "tool_search"},
+	},
+	{
+		Protocol:       "openai_chat_completions",
+		Provider:       "DeepSeek",
+		Vendor:         "deepseek",
+		Type:           "deepseek_read_url",
+		Key:            "deepseek.read_url",
+		Label:          "Read URL",
+		Description:    "DeepSeek hosted URL reader for links in the user message.",
+		Payload:        map[string]any{"type": "deepseek_read_url"},
+		DefaultEnabled: true,
+		PriceLabel:     "notMetered",
+		UsageAliases:   []string{"deepseek_read_url", "tool_fetch"},
+	},
 }
 
 var usagePricesByKey = map[string]UsagePrice{
@@ -434,6 +515,33 @@ func Definitions() []Definition {
 	result := make([]Definition, 0, len(definitions))
 	for _, definition := range definitions {
 		result = append(result, cloneDefinition(definition))
+	}
+	return result
+}
+
+// DefaultPayloads 返回指定厂商在指定协议下默认开启的官方原生工具 payload。
+// 调用方负责决定是否真的随请求发送（例如用户显式关闭或管理员已配置原生工具时不注入）。
+func DefaultPayloads(vendor string, protocol string) []map[string]any {
+	vendor = strings.TrimSpace(vendor)
+	protocol = strings.TrimSpace(protocol)
+	if vendor == "" || protocol == "" {
+		return nil
+	}
+	result := make([]map[string]any, 0, 2)
+	for _, definition := range definitions {
+		if !definition.DefaultEnabled || definition.Protocol != protocol {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(definition.Vendor), vendor) {
+			continue
+		}
+		if len(definition.Payload) == 0 {
+			continue
+		}
+		result = append(result, cloneMap(definition.Payload))
+	}
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }
@@ -607,6 +715,7 @@ func definitionIdentity(definition Definition) string {
 func normalizeDefinition(definition Definition) (Definition, bool) {
 	definition.Protocol = strings.TrimSpace(definition.Protocol)
 	definition.Provider = strings.TrimSpace(definition.Provider)
+	definition.Vendor = strings.TrimSpace(definition.Vendor)
 	definition.Type = strings.TrimSpace(definition.Type)
 	definition.Key = strings.TrimSpace(definition.Key)
 	definition.Label = strings.TrimSpace(definition.Label)
@@ -652,6 +761,7 @@ func DefinitionsFromCapabilitiesJSON(raw string) []Definition {
 			Protocol       string         `json:"protocol"`
 			Protocols      []string       `json:"protocols"`
 			Provider       string         `json:"provider"`
+			Vendor         string         `json:"vendor"`
 			Type           string         `json:"type"`
 			Label          string         `json:"label"`
 			Description    string         `json:"description"`
@@ -683,6 +793,7 @@ func DefinitionsFromCapabilitiesJSON(raw string) []Definition {
 			definition, ok := normalizeDefinition(Definition{
 				Protocol:       protocol,
 				Provider:       item.Provider,
+				Vendor:         item.Vendor,
 				Type:           item.Type,
 				Key:            key,
 				Label:          item.Label,

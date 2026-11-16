@@ -346,6 +346,12 @@ func applyChatStreamEvent(
 		}
 	}
 	mergeChatStreamToolCalls(parsed, result)
+	if err := mergeChatStreamServerTools(parsed, result, onEvent); err != nil {
+		return err
+	}
+	if usage := parseServerSideToolUsage(parsed); usage != nil {
+		result.ServerSideToolUsage = usage
+	}
 	if serviceTier := strings.TrimSpace(getString(parsed["service_tier"])); serviceTier != "" {
 		result.Usage.ServiceTier = serviceTier
 	}
@@ -365,6 +371,89 @@ func applyChatStreamEvent(
 		}
 	}
 	return nil
+}
+
+func mergeChatStreamServerTools(parsed map[string]any, result *portllm.GenerateOutput, onEvent func(portllm.GenerateStreamEvent) error) error {
+	choice := firstMapItem(asSlice(parsed["choices"]))
+	event := asMap(choice["server_tool_event"])
+	emit := func(call portllm.ToolCall) error {
+		call = mergeNativeWebToolCall(&result.ServerToolCalls, call)
+		if onEvent != nil {
+			return onEvent(portllm.GenerateStreamEvent{ServerToolCall: &call, ResponseID: result.ResponseID})
+		}
+		return nil
+	}
+	switch getString(event["type"]) {
+	case "call_started", "call_completed":
+		payload := cloneMap(asMap(event["call"]))
+		if getString(payload["id"]) != "" {
+			// Completion events may omit the original action and kind.
+			for _, existing := range result.ServerToolCalls {
+				if existing.ToolCallID != getString(payload["id"]) {
+					continue
+				}
+				mergeMapValueIfEmpty(payload, "type", existing.ToolType)
+				mergeMapValueIfEmpty(payload, "action", decodeToolResultObject(existing.ArgumentsJSON))
+				mergeMapValueIfEmpty(payload, "kind", decodeToolResultObject(existing.OutputJSON)["kind"])
+				break
+			}
+			if getString(event["type"]) == "call_started" {
+				payload["status"] = "in_progress"
+			}
+			if err := emit(parseChatServerToolCall(payload)); err != nil {
+				return err
+			}
+		}
+	}
+	delta := asMap(choice["delta"])
+	for _, call := range parseChatServerToolCalls(delta["server_tool_calls"]) {
+		if err := emit(call); err != nil {
+			return err
+		}
+	}
+	result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(map[string]any{"annotations": delta["annotations"]})...)
+	return nil
+}
+
+func parseChatServerToolCalls(raw any) []portllm.ToolCall {
+	steps := asSlice(raw)
+	if payload := asMap(raw); len(payload) > 0 {
+		steps = asSlice(payload["steps"])
+	}
+	var result []portllm.ToolCall
+	for _, rawStep := range steps {
+		for _, rawCall := range asSlice(asMap(rawStep)["calls"]) {
+			call := parseChatServerToolCall(asMap(rawCall))
+			if call.ToolCallID != "" {
+				result = append(result, call)
+			}
+		}
+	}
+	return result
+}
+
+func parseChatServerToolCall(payload map[string]any) portllm.ToolCall {
+	action := asMap(payload["action"])
+	defaultKind := "search"
+	if getString(payload["type"]) == "deepseek_read_url" {
+		defaultKind = "read_link"
+	}
+	output, errorCode := nativeWebToolOutputJSON(payload, action, defaultKind)
+	status := textutil.FirstNonEmpty(getString(payload["status"]), "completed")
+	errorJSON := ""
+	if errorCode != "" {
+		status = "failed"
+		errorJSON = normalizeJSONString(map[string]any{"code": errorCode})
+	}
+	return portllm.ToolCall{
+		ToolCallID:    strings.TrimSpace(getString(payload["id"])),
+		ToolType:      strings.TrimSpace(getString(payload["type"])),
+		ToolName:      strings.TrimSpace(getString(payload["type"])),
+		ArgumentsJSON: normalizeJSONString(action),
+		OutputJSON:    output,
+		ErrorJSON:     errorJSON,
+		Status:        status,
+	}
 }
 
 func mergeChatStreamToolCalls(parsed map[string]any, result *portllm.GenerateOutput) {
@@ -414,6 +503,11 @@ func parseChatCompletionsOutput(adapter string, parsed map[string]any, result *p
 	result.Reasoning = parseChatReasoningOutput(message)
 
 	result.Usage = parseOpenAICompatibleUsageForAdapter(adapter, parsed)
+	result.ServerSideToolUsage = parseServerSideToolUsage(parsed)
+	for _, call := range parseChatServerToolCalls(message["server_tool_calls"]) {
+		mergeNativeWebToolCall(&result.ServerToolCalls, call)
+	}
+	result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(map[string]any{"annotations": message["annotations"]})...)
 
 	toolCalls := parseChatToolCalls(message["tool_calls"])
 	if len(toolCalls) > 0 {

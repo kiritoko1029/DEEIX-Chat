@@ -282,3 +282,104 @@ func TestPricingOverridesUseDefaults(t *testing.T) {
 		t.Fatal("expected customized Google search price to differ from defaults")
 	}
 }
+
+func TestDeepSeekNativeToolDefinitionsPerProtocol(t *testing.T) {
+	cases := []struct {
+		protocol   string
+		firstTool  string
+		firstName  string
+		secondTool string
+		secondName string
+	}{
+		{
+			protocol:   "anthropic_messages",
+			firstTool:  "deepseek_web_search",
+			firstName:  "deepseek_web_search",
+			secondTool: "deepseek_read_url",
+			secondName: "deepseek_read_url",
+		},
+		{
+			protocol:   "openai_responses",
+			firstTool:  "deepseek_web_search",
+			firstName:  "",
+			secondTool: "deepseek_read_url",
+			secondName: "",
+		},
+		{
+			protocol:   "openai_chat_completions",
+			firstTool:  "deepseek_web_search",
+			firstName:  "",
+			secondTool: "deepseek_read_url",
+			secondName: "",
+		},
+	}
+	for _, item := range cases {
+		for _, toolType := range []string{item.firstTool, item.secondTool} {
+			definition, ok := Find(item.protocol, toolType)
+			if !ok {
+				t.Fatalf("expected %s/%s definition", item.protocol, toolType)
+			}
+			if definition.Vendor != "deepseek" || !definition.DefaultEnabled {
+				t.Fatalf("expected deepseek default vendor definition, got %#v", definition)
+			}
+			if definition.Billable || definition.PriceNanousd != 0 {
+				t.Fatalf("expected deepseek native tools to stay unmetered, got %#v", definition)
+			}
+		}
+		payloads := DefaultPayloads("deepseek", item.protocol)
+		if len(payloads) != 2 {
+			t.Fatalf("expected two deepseek default payloads for %s, got %#v", item.protocol, payloads)
+		}
+		if payloads[0]["type"] != item.firstTool || payloads[1]["type"] != item.secondTool {
+			t.Fatalf("unexpected default payload order for %s: %#v", item.protocol, payloads)
+		}
+		if got := stringValue(payloads[0]["name"]); got != item.firstName {
+			t.Fatalf("unexpected first tool name for %s: %q", item.protocol, got)
+		}
+		if got := stringValue(payloads[1]["name"]); got != item.secondName {
+			t.Fatalf("unexpected second tool name for %s: %q", item.protocol, got)
+		}
+	}
+}
+
+func TestDefaultPayloadsRequiresMatchingVendorAndProtocol(t *testing.T) {
+	if payloads := DefaultPayloads("", "anthropic_messages"); payloads != nil {
+		t.Fatalf("expected no defaults without vendor, got %#v", payloads)
+	}
+	if payloads := DefaultPayloads("deepseek", ""); payloads != nil {
+		t.Fatalf("expected no defaults without protocol, got %#v", payloads)
+	}
+	if payloads := DefaultPayloads("openai", "anthropic_messages"); payloads != nil {
+		t.Fatalf("expected no defaults for mismatched vendor, got %#v", payloads)
+	}
+	if payloads := DefaultPayloads("deepseek", "gemini_generate_content"); payloads != nil {
+		t.Fatalf("expected no defaults for unsupported protocol, got %#v", payloads)
+	}
+	payloads := DefaultPayloads("DeepSeek", "openai_responses")
+	if len(payloads) != 2 {
+		t.Fatalf("expected vendor matching to be case insensitive, got %#v", payloads)
+	}
+	payloads[0]["type"] = "mutated"
+	if again := DefaultPayloads("deepseek", "openai_responses"); stringValue(again[0]["type"]) != "deepseek_web_search" {
+		t.Fatalf("expected default payloads to be deep copies, got %#v", again)
+	}
+}
+
+func TestNativeToolDefinitionsFromCapabilitiesCarryVendor(t *testing.T) {
+	dynamic := DefinitionsFromCapabilitiesJSON(`{
+		"nativeTools": [
+			{
+				"key": "deepseek.web_search",
+				"provider": "DeepSeek",
+				"vendor": "deepseek",
+				"protocols": ["openai_responses"],
+				"type": "deepseek_web_search",
+				"payload": {"type": "deepseek_web_search"},
+				"defaultEnabled": true
+			}
+		]
+	}`)
+	if len(dynamic) != 1 || dynamic[0].Vendor != "deepseek" {
+		t.Fatalf("expected capability vendor to be preserved, got %#v", dynamic)
+	}
+}

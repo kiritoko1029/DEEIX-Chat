@@ -985,7 +985,7 @@ func (s *Service) sendMessageInternal(
 			retErr = budgetErr
 			return nil, retErr
 		}
-		nextOutput, nextErr := runner.generate(ctx, followUpInput, llmMessages)
+		nextOutput, nextErr := runner.generateWithNativeToolsFallback(ctx, route, &followUpInput, llmMessages)
 		if generationCanceled(ctx, nextErr) {
 			retErr = ErrMessageGenerationCanceled
 			return nil, retErr
@@ -1015,7 +1015,7 @@ func (s *Service) sendMessageInternal(
 			retErr = budgetErr
 			return nil, retErr
 		}
-		nextOutput, nextErr := runner.generate(ctx, finalInput, llmMessages)
+		nextOutput, nextErr := runner.generateWithNativeToolsFallback(ctx, route, &finalInput, llmMessages)
 		if generationCanceled(ctx, nextErr) {
 			retErr = ErrMessageGenerationCanceled
 			return nil, retErr

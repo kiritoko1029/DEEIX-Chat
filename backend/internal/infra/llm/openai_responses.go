@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/pkg/textutil"
@@ -344,7 +345,8 @@ func applyResponsesStreamEvent(
 	}
 
 	if call, ok := parseResponsesServerToolStatusEvent(eventType, parsed); ok {
-		appendUniqueToolCall(&result.ServerToolCalls, call)
+		call = mergeResponsesServerToolCall(result, responsesServerToolStatusItem(eventType, parsed))
+		result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(parsed)...)
 		if onEvent != nil {
 			return onEvent(portllm.GenerateStreamEvent{
 				ServerToolCall: &call,
@@ -368,9 +370,13 @@ func applyResponsesStreamEvent(
 		}
 		return eventErr
 	case "response.output_item.added", "response.output_item.in_progress":
-		return mergeResponsesStreamOutputItem(result, asMap(parsed["item"]), onEvent)
+		item := cloneMap(asMap(parsed["item"]))
+		mergeMapValueIfEmpty(item, "status", "in_progress")
+		return mergeResponsesStreamOutputItem(result, item, onEvent)
 	case "response.output_item.done":
-		return mergeResponsesStreamOutputItem(result, asMap(parsed["item"]), onEvent)
+		item := cloneMap(asMap(parsed["item"]))
+		mergeMapValueIfEmpty(item, "status", "completed")
+		return mergeResponsesStreamOutputItem(result, item, onEvent)
 	case "response.custom_tool_call_input.delta", "response.custom_tool_call_input.done":
 		return mergeResponsesCustomToolInputEvent(result, parsed, onEvent)
 	case "response.output_text.delta":
@@ -390,6 +396,8 @@ func applyResponsesStreamEvent(
 		if text != "" && !strings.Contains(result.Text, text) {
 			result.Text += text
 		}
+	case "response.output_text.annotation.added":
+		result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(asMap(parsed["annotation"]))...)
 	case "response.refusal.delta":
 		delta := getString(parsed["delta"])
 		if delta == "" {
@@ -438,7 +446,7 @@ func applyResponsesStreamEvent(
 		if result.Reasoning == nil || !reasoningOutputContains(result.Reasoning, reasoning.Text) {
 			mergeReasoningDeltaOutput(&result.Reasoning, reasoning)
 		}
-	case "response.completed":
+	case "response.completed", "response.incomplete":
 		output := buildGenerateOutputFromParsedForAdapter(portllm.EndpointResponses, adapter, asMap(parsed["response"]), false)
 		if result.Reasoning == nil && output.Reasoning != nil && onEvent != nil {
 			if text := textutil.FirstNonEmpty(output.Reasoning.Text, output.Reasoning.Summary); text != "" {
@@ -472,9 +480,17 @@ func applyResponsesStreamEvent(
 }
 
 func parseResponsesServerToolStatusEvent(eventType string, parsed map[string]any) (portllm.ToolCall, bool) {
+	item := responsesServerToolStatusItem(eventType, parsed)
+	if len(item) == 0 {
+		return portllm.ToolCall{}, false
+	}
+	return parseResponseServerToolCall(item), true
+}
+
+func responsesServerToolStatusItem(eventType string, parsed map[string]any) map[string]any {
 	value := strings.TrimSpace(eventType)
 	if !strings.HasPrefix(value, "response.") {
-		return portllm.ToolCall{}, false
+		return nil
 	}
 	status := ""
 	for _, suffix := range []string{".in_progress", ".searching", ".generating", ".completed", ".failed", ".error"} {
@@ -485,7 +501,7 @@ func parseResponsesServerToolStatusEvent(eventType string, parsed map[string]any
 		}
 	}
 	if status == "" || !isResponsesServerToolCallType(value) {
-		return portllm.ToolCall{}, false
+		return nil
 	}
 	item := cloneMap(asMap(parsed["item"]))
 	if len(item) == 0 {
@@ -496,10 +512,34 @@ func parseResponsesServerToolStatusEvent(eventType string, parsed map[string]any
 	for _, key := range responseServerToolIdentifierKeys() {
 		mergeMapValueIfEmpty(item, key, parsed[key])
 	}
-	for _, key := range []string{"action", "arguments", "input", "query", "output", "outputs", "results", "search_results", "sources", "citations", "data", "items", "content", "response", "result", "error"} {
+	for _, key := range []string{"action", "arguments", "input", "query", "output", "outputs", "results", "search_results", "sources", "citations", "data", "items", "content", "response", "result", "error", "kind", "page"} {
 		mergeMapValueIfEmpty(item, key, parsed[key])
 	}
-	return parseResponseServerToolCall(item), true
+	return item
+}
+
+// DeepSeek correlates concurrent calls by output_index; progress events can omit IDs.
+func correlateResponsesStreamToolItem(parsed map[string]any, itemIDs map[int64]string) {
+	rawIndex, ok := parsed["output_index"]
+	if !ok {
+		return
+	}
+	item := asMap(parsed["item"])
+	if !isResponsesServerToolCallItem(item) && !strings.HasPrefix(getString(parsed["type"]), "response.web_search_call.") {
+		return
+	}
+	index := toInt64(rawIndex)
+	id := textutil.FirstNonEmpty(responseServerToolCallID(item, getString(item["type"])), getString(parsed["item_id"]), getString(parsed["id"]))
+	if id != "" {
+		itemIDs[index] = id
+		return
+	}
+	if id = itemIDs[index]; id != "" {
+		parsed["item_id"] = id
+		if len(item) > 0 {
+			item["id"] = id
+		}
+	}
 }
 
 func responseServerToolIdentifierKeys() []string {
@@ -524,8 +564,7 @@ func mergeResponsesStreamOutputItem(
 		mergeResponsesOutputItem(result, item, false)
 		return nil
 	}
-	call := parseResponseServerToolCall(item)
-	appendUniqueToolCall(&result.ServerToolCalls, call)
+	call := mergeResponsesServerToolCall(result, item)
 	result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(item)...)
 	if onEvent == nil {
 		return nil
@@ -615,7 +654,7 @@ func mergeResponsesTopLevelToolCalls(result *portllm.GenerateOutput, raw any) {
 			continue
 		}
 		if isResponsesServerToolCallItem(item) {
-			appendUniqueToolCall(&result.ServerToolCalls, parseResponseServerToolCall(item))
+			mergeResponsesServerToolCall(result, item)
 			result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(item)...)
 			continue
 		}
@@ -788,7 +827,7 @@ func mergeResponsesOutputItem(result *portllm.GenerateOutput, item map[string]an
 		if image, ok := parseResponsesGeneratedImage(item); ok {
 			result.GeneratedImages = appendUniqueGeneratedImage(result.GeneratedImages, image)
 		}
-		appendUniqueToolCall(&result.ServerToolCalls, parseResponseServerToolCall(item))
+		mergeResponsesServerToolCall(result, item)
 		result.Citations = appendUniqueStrings(result.Citations, parseResponseCitations(item)...)
 	case isResponsesClientToolCallType(itemType):
 		appendUniqueToolCall(&result.ToolCalls, parseResponseToolCall(item))
@@ -872,6 +911,24 @@ func parseResponseServerToolCall(item map[string]any) portllm.ToolCall {
 		outputJSON = responsesImageGenerationToolOutputJSON(item)
 	}
 	errorJSON := normalizeJSONString(item["error"])
+	if itemType == "web_search_call" && isDeepSeekResponsesWebTool(item) {
+		action := asMap(item["action"])
+		payload := cloneMap(item)
+		mergeMapValueIfEmpty(payload, "sources", action["sources"])
+		mergeMapValueIfEmpty(payload, "page", action["page"])
+		var errorCode string
+		outputJSON, errorCode = nativeWebToolOutputJSON(payload, action, "search")
+		kind := getString(decodeToolResultObject(outputJSON)["kind"])
+		toolName = "deepseek_web_search"
+		if kind == "read_link" {
+			toolName = "deepseek_read_url"
+		}
+		if errorCode != "" {
+			status = "failed"
+			errorJSON = normalizeJSONString(map[string]any{"code": errorCode})
+		}
+	}
+	outputJSON = sanitizedServerToolOutputJSON(outputJSON)
 	return portllm.ToolCall{
 		ToolCallID:    toolCallID,
 		ToolType:      itemType,
@@ -881,6 +938,192 @@ func parseResponseServerToolCall(item map[string]any) portllm.ToolCall {
 		OutputJSON:    outputJSON,
 		ErrorJSON:     errorJSON,
 	}
+}
+
+func isDeepSeekResponsesWebTool(item map[string]any) bool {
+	if strings.TrimSpace(getString(item["kind"])) != "" || item["page"] != nil || asMap(item["action"])["page"] != nil {
+		return true
+	}
+	switch getStringFromPath(item, "action", "type") {
+	case "read_link", "deep_search", "image_search", "deep_image_search":
+		return true
+	default:
+		return false
+	}
+}
+
+// Status events often contain only an ID; carry the earlier DeepSeek metadata forward.
+func mergeResponsesServerToolCall(result *portllm.GenerateOutput, item map[string]any) portllm.ToolCall {
+	call := parseResponseServerToolCall(item)
+	for _, existing := range result.ServerToolCalls {
+		if !shouldMergeToolCall(existing, call) {
+			continue
+		}
+		if getString(item["type"]) == "web_search_call" &&
+			(existing.ToolName == "deepseek_web_search" || existing.ToolName == "deepseek_read_url") {
+			payload := cloneMap(item)
+			previous := decodeToolResultObject(existing.OutputJSON)
+			for _, key := range []string{"kind", "page", "sources"} {
+				mergeMapValueIfEmpty(payload, key, previous[key])
+			}
+			action := decodeToolResultObject(existing.ArgumentsJSON)
+			for key, value := range asMap(item["action"]) {
+				action[key] = value
+			}
+			// New action sources take precedence over a prior result projection.
+			if sources, ok := asMap(item["action"])["sources"]; ok && item["sources"] == nil {
+				payload["sources"] = sources
+			}
+			payload["action"] = action
+			mergeMapValueIfEmpty(payload, "status", existing.Status)
+			call = parseResponseServerToolCall(payload)
+		}
+		break
+	}
+	return mergeNativeWebToolCall(&result.ServerToolCalls, call)
+}
+
+func decodeToolResultObject(raw string) map[string]any {
+	result := make(map[string]any)
+	_ = json.Unmarshal([]byte(raw), &result)
+	if result == nil {
+		return make(map[string]any)
+	}
+	return result
+}
+
+func sanitizedServerToolOutputJSON(raw string) string {
+	var value any
+	if json.Unmarshal([]byte(raw), &value) != nil {
+		return raw
+	}
+	return normalizeJSONString(sanitizeAnthropicServerToolResultValue(value))
+}
+
+// nativeWebToolOutputJSON is the common display contract for DeepSeek's three APIs.
+// Projecting an allowlist also prevents encrypted provider context from reaching traces.
+func nativeWebToolOutputJSON(item, action map[string]any, defaultKind string) (string, string) {
+	kind := strings.TrimSpace(getString(item["kind"]))
+	actionType := textutil.FirstNonEmpty(getString(action["type"]), getString(action["action"]))
+	if actionType == "read_link" {
+		kind = "read_link"
+	}
+	if kind == "" {
+		switch actionType {
+		case "deep_search", "image_search", "deep_image_search":
+			kind = actionType
+		case "open_page", "find_in_page":
+			kind = "deep_search"
+		default:
+			kind = defaultKind
+		}
+	}
+	switch kind {
+	case "search", "deep_search", "image_search", "deep_image_search", "read_link":
+	default:
+		kind = defaultKind
+	}
+	output := map[string]any{"kind": kind}
+	errorCode := nativeWebToolErrorCode(item["error"])
+	if errorCode == "" {
+		errorCode = strings.TrimSpace(getString(item["error_code"]))
+	}
+	if errorCode == "" && (getString(item["status"]) == "failed" || getString(item["status"]) == "error") {
+		errorCode = "unavailable"
+	}
+	if errorCode != "" {
+		output["error_code"] = errorCode
+		return normalizeJSONString(output), errorCode
+	}
+	var queries []string
+	for _, raw := range asSlice(action["queries"]) {
+		if query := strings.TrimSpace(getString(raw)); query != "" {
+			queries = append(queries, query)
+		}
+	}
+	if len(queries) == 0 {
+		if query := strings.TrimSpace(getString(action["query"])); query != "" {
+			queries = append(queries, query)
+		}
+	}
+	if len(queries) > 0 {
+		output["queries"] = queries
+	}
+	var sources []map[string]any
+	for _, raw := range asSlice(item["sources"]) {
+		source := asMap(raw)
+		url := strings.TrimSpace(getString(source["url"]))
+		if url == "" {
+			continue
+		}
+		projected := map[string]any{"url": url}
+		for _, key := range []string{"title", "snippet", "site_name", "site_icon", "image_url"} {
+			if value := strings.TrimSpace(getString(source[key])); value != "" {
+				projected[key] = value
+			}
+		}
+		if value := textutil.FirstNonEmpty(getString(source["page_age"]), getString(source["published_at"])); value != "" {
+			projected["published_at"] = value
+		}
+		sources = append(sources, projected)
+	}
+	if len(sources) > 0 {
+		output["sources"] = sources
+	}
+	page := asMap(item["page"])
+	if url := strings.TrimSpace(getString(page["url"])); url != "" {
+		projected := map[string]any{"url": url}
+		if title := strings.TrimSpace(getString(page["title"])); title != "" {
+			projected["title"] = title
+		}
+		if publishedAt, ok := page["published_at"]; ok && (publishedAt == nil || getString(publishedAt) != "") {
+			projected["published_at"] = publishedAt
+		}
+		output["page"] = projected
+	}
+	if pattern := strings.TrimSpace(getString(action["pattern"])); pattern != "" {
+		output["pattern"] = pattern
+	}
+	return normalizeJSONString(output), ""
+}
+
+func nativeWebToolErrorCode(raw any) string {
+	if values, ok := raw.([]any); ok {
+		for _, value := range values {
+			if code := nativeWebToolErrorCode(value); code != "" {
+				return code
+			}
+		}
+		return ""
+	}
+	if value, ok := raw.(string); ok {
+		return strings.TrimSpace(value)
+	}
+	value := asMap(raw)
+	return textutil.FirstNonEmpty(getString(value["error_code"]), getString(value["code"]))
+}
+
+func mergeNativeWebToolCall(items *[]portllm.ToolCall, incoming portllm.ToolCall) portllm.ToolCall {
+	for index, existing := range *items {
+		if !shouldMergeToolCall(existing, incoming) {
+			continue
+		}
+		merged := mergeToolCall(existing, incoming)
+		if strings.HasPrefix(merged.ToolName, "deepseek_") && existing.OutputJSON != "" && incoming.OutputJSON != "" {
+			output := decodeToolResultObject(existing.OutputJSON)
+			for key, value := range decodeToolResultObject(incoming.OutputJSON) {
+				output[key] = value
+			}
+			if code := getString(output["error_code"]); code != "" {
+				output = map[string]any{"kind": output["kind"], "error_code": code}
+			}
+			merged.OutputJSON = normalizeJSONString(output)
+		}
+		(*items)[index] = merged
+		return merged
+	}
+	*items = append(*items, incoming)
+	return incoming
 }
 
 // parseResponsesPartialImage 解析 Responses 图片生成过程中的预览帧。
@@ -1113,7 +1356,7 @@ func collectResponseCitationURLs(raw any, result *[]string) {
 		if text := textutil.FirstNonEmpty(getString(value["url"]), getString(value["uri"])); text != "" {
 			*result = append(*result, text)
 		}
-		for _, key := range []string{"action", "content", "annotations", "output", "outputs", "results", "search_results", "sources", "citations", "url_citation", "file_citation", "data", "items", "response", "result"} {
+		for _, key := range []string{"action", "page", "content", "annotations", "output", "outputs", "results", "search_results", "sources", "citations", "url_citation", "file_citation", "data", "items", "response", "result"} {
 			collectResponseCitationURLs(value[key], result)
 		}
 	}
@@ -1123,6 +1366,11 @@ func parseServerSideToolUsage(parsed map[string]any) map[string]int64 {
 	usage := asMap(parsed["usage"])
 	if len(usage) == 0 {
 		return nil
+	}
+	if raw, ok := usage["server_tool_use"]; ok {
+		// DeepSeek's *_requests are display counts, never billed usage.
+		result, _ := parseDeepSeekServerToolUsage(asMap(raw))
+		return result
 	}
 	raw := asMap(usage["server_side_tool_usage"])
 	if len(raw) == 0 {
@@ -1141,6 +1389,25 @@ func parseServerSideToolUsage(parsed map[string]any) map[string]int64 {
 		}
 	}
 	return result
+}
+
+func parseDeepSeekServerToolUsage(raw map[string]any) (map[string]int64, bool) {
+	var result map[string]int64
+	found := false
+	for _, key := range []string{"tool_search", "tool_fetch", "tool_image_search"} {
+		value, ok := raw[key]
+		if !ok {
+			continue
+		}
+		found = true
+		if count := toInt64(value); count > 0 {
+			if result == nil {
+				result = make(map[string]int64)
+			}
+			result[key] = count
+		}
+	}
+	return result, found
 }
 
 func normalizeServerSideToolUsageKey(key string) string {

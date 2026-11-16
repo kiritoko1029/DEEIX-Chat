@@ -15,7 +15,7 @@ const (
 	MaxPresentationInputBytes       = 256 * 1024
 	toolTracePresentationMaxDepth   = 24
 	toolTracePresentationMaxNodes   = 512
-	toolTracePresentationMaxSources = 8
+	toolTracePresentationMaxSources = 12
 	toolTracePresentationURLChars   = 2048
 	toolTracePresentationTitleChars = 180
 	toolTracePresentationSnippet    = 320
@@ -26,6 +26,13 @@ type Source struct {
 	Title   string `json:"title,omitempty"`
 	URL     string `json:"url"`
 	Snippet string `json:"snippet,omitempty"`
+	// SiteName / SiteIcon / PublishedAt / ImageURL 是厂商原生联网工具的可选展示元信息。
+	SiteName    string `json:"site_name,omitempty"`
+	SiteIcon    string `json:"site_icon,omitempty"`
+	PublishedAt string `json:"published_at,omitempty"`
+	ImageURL    string `json:"image_url,omitempty"`
+	// Kind 区分来源形态：search（搜索命中）、read_link（阅读用户给出的链接）、page（深度搜索打开的网页）。
+	Kind string `json:"kind,omitempty"`
 }
 
 type Presentation struct {
@@ -106,6 +113,14 @@ func BuildPresentation(raw string) *Presentation {
 		}
 		if presentation.Text == "" {
 			presentation.Text = ReadablePreview(payload)
+		}
+		if root, ok := payload.(map[string]any); ok {
+			rootKind := normalizeToolTraceSourceKind(root, firstToolTracePresentationString(root, "kind"))
+			for index := range presentation.Sources {
+				if rootKind != "" && presentation.Sources[index].Kind == "" {
+					presentation.Sources[index].Kind = rootKind
+				}
+			}
 		}
 	}
 
@@ -273,15 +288,96 @@ func collectToolTraceRecordSource(
 	indexes map[string]int,
 	record map[string]any,
 ) {
-	sourceURL := firstToolTracePresentationString(record, "url", "uri", "link", "href", "retrieved_url", "source_url")
-	if sourceURL == "" {
+	source := toolTraceSourceFromRecord(record)
+	if source.URL != "" {
+		addToolTraceSource(presentation, indexes, source)
 		return
 	}
-	addToolTraceSource(presentation, indexes, Source{
-		Title:   firstToolTracePresentationString(record, "title", "name", "page_title"),
-		URL:     sourceURL,
-		Snippet: firstToolTracePresentationString(record, "snippet", "description", "summary", "excerpt"),
-	})
+	// 原生联网工具把阅读/打开的网页放在 page 或 web_fetch_result.content 里。
+	for _, key := range []string{"page", "content"} {
+		nested := asToolTraceMap(record[key])
+		if len(nested) == 0 {
+			continue
+		}
+		if single := toolTraceSourceFromRecord(nested); single.URL != "" {
+			addToolTraceSource(presentation, indexes, single)
+			return
+		}
+	}
+}
+
+func asToolTraceMap(value any) map[string]any {
+	typed, ok := value.(map[string]any)
+	if !ok || len(typed) == 0 {
+		return nil
+	}
+	return typed
+}
+
+func toolTraceSourceFromRecord(record map[string]any) Source {
+	sourceURL := firstToolTracePresentationString(record, "url", "uri", "link", "href", "retrieved_url", "source_url")
+	if sourceURL == "" {
+		return Source{}
+	}
+	title := firstToolTracePresentationString(record, "title", "name", "page_title")
+	if title == "" {
+		title = firstToolTracePresentationString(asToolTraceMap(record["content"]), "title", "name", "page_title")
+	}
+	publishedAt := firstToolTracePresentationString(record, "published_at", "page_age", "published")
+	siteName := firstToolTracePresentationString(record, "site_name", "siteName", "publisher")
+	siteIcon := normalizeToolTraceAssetURL(firstToolTracePresentationString(record, "site_icon", "siteIcon", "favicon", "icon"))
+	imageURL := normalizeToolTraceAssetURL(firstToolTracePresentationString(record, "image_url", "imageUrl", "thumbnail", "thumbnail_url"))
+	kind := normalizeToolTraceSourceKind(record, firstToolTracePresentationString(record, "kind"))
+	return Source{
+		Title:       title,
+		URL:         sourceURL,
+		Snippet:     firstToolTracePresentationString(record, "snippet", "description", "summary", "excerpt", "cited_text"),
+		SiteName:    Snippet(siteName, toolTracePresentationTitleChars),
+		SiteIcon:    siteIcon,
+		PublishedAt: Snippet(publishedAt, toolTracePresentationTitleChars),
+		ImageURL:    imageURL,
+		Kind:        kind,
+	}
+}
+
+// normalizeToolTraceSourceKind 依据显式 kind 或 action/page 形态推断来源类型。
+func normalizeToolTraceSourceKind(record map[string]any, explicit string) string {
+	switch normalizeToolTracePresentationKey(explicit) {
+	case "search", "deep_search", "image_search", "deep_image_search":
+		return "search"
+	case "read_link", "read_url", "read_page":
+		return "read_link"
+	case "page", "open_page":
+		return "page"
+	}
+	action := asToolTraceMap(record["action"])
+	if actionType := normalizeToolTracePresentationKey(firstToolTracePresentationString(action, "type")); actionType != "" {
+		switch actionType {
+		case "search":
+			return "search"
+		case "read_link", "read_url", "read_page":
+			return "read_link"
+		case "open_page":
+			return "page"
+		}
+	}
+	if len(asToolTraceMap(record["page"])) > 0 {
+		return "page"
+	}
+	return ""
+}
+
+// normalizeToolTraceAssetURL 只保留 http/https 资源地址，避免把 javascript: 等协议带进展示层。
+func normalizeToolTraceAssetURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" || len([]rune(value)) > toolTracePresentationURLChars {
+		return ""
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return ""
+	}
+	return value
 }
 
 func collectToolTraceTextSources(
@@ -319,6 +415,21 @@ func addToolTraceSource(
 		}
 		if current.Snippet == "" {
 			current.Snippet = source.Snippet
+		}
+		if current.SiteName == "" {
+			current.SiteName = source.SiteName
+		}
+		if current.SiteIcon == "" {
+			current.SiteIcon = source.SiteIcon
+		}
+		if current.PublishedAt == "" {
+			current.PublishedAt = source.PublishedAt
+		}
+		if current.ImageURL == "" {
+			current.ImageURL = source.ImageURL
+		}
+		if current.Kind == "" {
+			current.Kind = source.Kind
 		}
 		return
 	}

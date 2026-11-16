@@ -496,6 +496,8 @@
     }
   },
   "composer": {
+    "webSearchOn": "Web search on. Click to turn it off",
+    "webSearchOff": "Web search off. Click to turn it on",
     "uploadFile": "Upload file",
     "screenshot": "Screenshot",
     "openTools": "Menu",
@@ -698,7 +700,8 @@
       "grok": "Grok native tools",
       "openai": "OpenAI native tools",
       "claude": "Claude native tools",
-      "google": "Google native tools"
+      "google": "Google native tools",
+      "deepseek": "DeepSeek native tools"
     },
     "output": "Output",
     "advancedOptions": "Advanced parameter settings"
@@ -823,6 +826,7 @@
       },
       "names": {
         "webSearch": "Web search",
+        "readUrl": "Read link",
         "codeInterpreter": "Code interpreter",
         "imageGeneration": "Image generation",
         "shell": "Shell",
@@ -843,6 +847,14 @@
         "sourceCount": "{count} sources",
         "groundingSupportCount": "{count} grounding supports",
         "exitCode": "Exit code {code}",
+        "site": "Site",
+        "publishedAt": "Published",
+        "publishedAtWithValue": "Published {date}",
+        "emptyContent": "No content retrieved",
+        "offlineFallback": "Answered without web access",
+        "readResultsTitle": "Read links",
+        "searchResultsTitle": "Search results",
+        "openSource": "Open {title}",
         "viewFullResult": "View full result",
         "fullResultTitle": "Full tool result",
         "loadingFullResult": "Loading full result",
@@ -1084,6 +1096,8 @@
     "web_search": "Controls whether native web search is enabled."
   },
   "nativeToolDescriptions": {
+    "deepseek__web_search": "Use DeepSeek web search for realtime web information.",
+    "deepseek__read_url": "Use DeepSeek to read webpages from specific links.",
     "openai__web_search": "Use OpenAI hosted web search for realtime information.",
     "openai__web_search_preview": "Use OpenAI hosted web search preview for realtime information.",
     "openai__shell": "Use OpenAI hosted shell execution in an automatic container.",
@@ -1122,6 +1136,8 @@
     "claudeToolSearchBm25": "Claude native tool search (BM25)"
   },
   "nativeToolLabels": {
+    "deepseek__web_search": "Web search",
+    "deepseek__read_url": "Read links",
     "openai__web_search": "Web search",
     "openai__web_search_preview": "Web search preview",
     "openai__shell": "Shell",
