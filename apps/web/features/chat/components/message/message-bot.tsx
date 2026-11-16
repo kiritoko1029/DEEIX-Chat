@@ -17,9 +17,13 @@ import { MessageKnowledgeSources } from "@/features/chat/components/message/mess
 import type { AssistantReaction } from "@/features/chat/components/message/message-meta";
 import { AssistantMessageMeta } from "@/features/chat/components/message/message-meta";
 import { MessageAgentTrace, MessageProcessTrace } from "@/features/chat/components/message/message-process-trace";
+import { buildTraceDisplayEvents } from "@/features/chat/components/message/message-agent-trace";
+import { buildWebSearchAggregate } from "@/features/chat/components/message/message-agent-tool-step";
+import { MessageWebSearchSummary } from "@/features/chat/components/message/message-web-search-summary";
 import { UpstreamExchangeDetails } from "@/features/chat/components/message/message-upstream-debug";
 import { useChatInlineVideoSource } from "@/features/chat/hooks/use-chat-inline-video-source";
 import { useChatMessageTraceDetail } from "@/features/chat/hooks/use-chat-message-trace-detail";
+import { useChatTraceLabels } from "@/features/chat/hooks/use-chat-trace-labels";
 import { resolveLeadingImagePreview } from "@/features/chat/model/media-image-preview";
 import {
   clearLiveUpstreamThinkTrace,
@@ -167,6 +171,8 @@ type ChatMessageBotProps = {
   onEditImageAttachment?: (attachment: MessageAttachment, sourceModelName?: string) => void;
   onExtendVideoAttachment?: (attachment: MessageAttachment, sourceModelName?: string) => void;
   artifactActions?: MarkdownArtifactActions;
+  // Opens this reply's web search results in the side panel.
+  onOpenWebSources?: (message: ChatAreaMessage) => void;
   // Persisted state of the interactive component blocks in this reply.
   uiBlockState?: UIBlockStateBinding;
   showBranchNavigator?: boolean;
@@ -204,6 +210,7 @@ export function ChatMessageBot({
   onEditImageAttachment,
   onExtendVideoAttachment,
   artifactActions,
+  onOpenWebSources,
   uiBlockState,
   showBranchNavigator = true,
   contentWidthClassName = "max-w-[1080px]",
@@ -315,6 +322,11 @@ export function ChatMessageBot({
       ),
     [traceEvents],
   );
+  const traceLabels = useChatTraceLabels();
+  const webSearchAggregate = React.useMemo(
+    () => buildWebSearchAggregate(buildTraceDisplayEvents(postProcessEvents), toolTrace),
+    [postProcessEvents, toolTrace],
+  );
   const hasTraceEvents = postProcessEvents.length > 0;
   const hasTraceBlocks = hasTraceEvents || Boolean(upstreamThink) || Boolean(toolTrace);
   const isImageGenerationLoading = item.contentType === "image" && item.isStreaming && !hasStreamdownContent;
@@ -424,6 +436,13 @@ export function ChatMessageBot({
         detailPending={traceDetailPending}
         detailFailed={traceDetailFailed}
         onLoadDetail={loadTraceDetail}
+      />
+
+      <MessageWebSearchSummary
+        summary={webSearchAggregate}
+        labels={traceLabels}
+        streaming={messageStreaming}
+        onOpen={onOpenWebSources ? () => onOpenWebSources(item) : undefined}
       />
 
       <div

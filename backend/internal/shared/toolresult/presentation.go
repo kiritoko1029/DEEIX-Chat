@@ -15,7 +15,7 @@ const (
 	MaxPresentationInputBytes       = 256 * 1024
 	toolTracePresentationMaxDepth   = 24
 	toolTracePresentationMaxNodes   = 512
-	toolTracePresentationMaxSources = 12
+	toolTracePresentationMaxSources = 24
 	toolTracePresentationURLChars   = 2048
 	toolTracePresentationTitleChars = 180
 	toolTracePresentationSnippet    = 320

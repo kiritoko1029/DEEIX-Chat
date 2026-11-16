@@ -128,6 +128,9 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
   // time: opening a code artifact (or one auto-opening while it streams)
   // replaces the block, and opening a block closes the artifact.
   const [activeBlock, setActiveBlock] = React.useState<{ messageKey: string; blockKey: string } | null>(null);
+  // A turn's web search results opened in the panel. The panel shows one thing
+  // at a time, so it closes the artifact and the interactive block.
+  const [activeWebSources, setActiveWebSources] = React.useState<{ messageKey: string } | null>(null);
   const dismissedArtifactRef = React.useRef<ChatArtifact | null>(null);
   const previousScopeRef = React.useRef({ key: scopeKey, transient });
   const artifactRatio = customArtifactRatio ?? resolveDefaultRatio(inlineLayout);
@@ -155,6 +158,7 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
     }
     previousScopeRef.current = { key: scopeKey, transient };
     setActiveBlock(null);
+    setActiveWebSources(null);
     setLastActiveArtifact(null);
     dismissedArtifactRef.current = null;
     setActiveArtifactID(null);
@@ -218,6 +222,7 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
   React.useEffect(() => {
     if (activeArtifactID) {
       setActiveBlock(null);
+      setActiveWebSources(null);
     }
   }, [activeArtifactID]);
 
@@ -226,6 +231,7 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
       if (activeArtifactID) {
         closeArtifact();
       }
+      setActiveWebSources(null);
       setActiveBlock({ messageKey: message.key, blockKey });
     },
     [activeArtifactID, closeArtifact],
@@ -233,6 +239,21 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
 
   const closeBlock = React.useCallback(() => {
     setActiveBlock(null);
+  }, []);
+
+  const openWebSources = React.useCallback(
+    (message: ChatAreaMessage) => {
+      if (activeArtifactID) {
+        closeArtifact();
+      }
+      setActiveBlock(null);
+      setActiveWebSources({ messageKey: message.key });
+    },
+    [activeArtifactID, closeArtifact],
+  );
+
+  const closeWebSources = React.useCallback(() => {
+    setActiveWebSources(null);
   }, []);
 
   const selectArtifact = React.useCallback((artifactID: string) => {
@@ -250,8 +271,11 @@ export function useChatArtifacts({ scopeKey, transient = false, messages }: UseC
   return {
     activeArtifact,
     activeBlock: activeArtifact ? null : activeBlock,
+    activeWebSources: activeArtifact ? null : activeWebSources,
     closeBlock,
+    closeWebSources,
     openBlock,
+    openWebSources,
     artifactRatio,
     artifacts,
     closeArtifact,

@@ -19,6 +19,7 @@ import { ConversationShareDialog, sharePatchFromDTO, useSidebarConversationField
 import { ChatArea, ChatAreaLoadError, ChatAreaSkeleton } from "@/features/chat/components/sections/chat-area";
 import { ChatArtifactWorkspace } from "@/features/chat/components/sections/chat-artifact";
 import { ChatUIBlockPanel } from "@/features/chat/components/sections/chat-ui-block-panel";
+import { ChatWebSourcesPanel } from "@/features/chat/components/sections/chat-web-sources-panel";
 import { ChatEmptyState } from "@/features/chat/components/sections/chat-empty";
 import { ChatInput } from "@/features/chat/components/sections/chat-input";
 import { ChatScreenshotPreviewDialog } from "@/features/chat/components/sections/chat-screenshot-preview-dialog";
@@ -698,6 +699,10 @@ export function AppChatArea() {
   const { workspaceRef, artifactResizing, onArtifactResizeStart } = useChatArtifactResize(artifactWorkspace);
   const activeBlock = artifactWorkspace.activeBlock;
   const activeBlockMessage = activeBlock ? displayMessages.find((message) => message.key === activeBlock.messageKey) : undefined;
+  const activeWebSources = artifactWorkspace.activeWebSources;
+  const activeWebSourcesMessage = activeWebSources
+    ? displayMessages.find((message) => message.key === activeWebSources.messageKey)
+    : undefined;
   const blockPanel = activeBlock ? (
     <ChatUIBlockPanel
       message={activeBlockMessage}
@@ -705,8 +710,12 @@ export function AppChatArea() {
       store={uiBlockState.store}
       onClose={artifactWorkspace.closeBlock}
     />
+  ) : activeWebSources ? (
+    <ChatWebSourcesPanel message={activeWebSourcesMessage} onClose={artifactWorkspace.closeWebSources} />
   ) : null;
-  const hasInlineArtifact = Boolean((artifactWorkspace.activeArtifact || activeBlock) && artifactWorkspace.isInlineViewport);
+  const hasInlineArtifact = Boolean(
+    (artifactWorkspace.activeArtifact || activeBlock || activeWebSources) && artifactWorkspace.isInlineViewport,
+  );
   const workspaceGridColumns = hasInlineArtifact
     ? `minmax(0, ${1 - artifactWorkspace.artifactRatio}fr) minmax(0, ${artifactWorkspace.artifactRatio}fr)`
     : "minmax(0, 1fr) minmax(0, 0fr)";
@@ -909,6 +918,7 @@ export function AppChatArea() {
                   onExtendVideoAttachment={onExtendGeneratedVideoAttachment}
                   onOpenCodeArtifact={artifactWorkspace.openArtifact}
                   onOpenUIBlock={artifactWorkspace.openBlock}
+                  onOpenWebSources={artifactWorkspace.openWebSources}
                   onCycleMessageBranch={onCycleMessageBranch}
                   onToggleStar={temporaryMode ? undefined : onToggleActiveConversationStar}
                   onRename={temporaryMode ? undefined : onRenameActiveConversation}

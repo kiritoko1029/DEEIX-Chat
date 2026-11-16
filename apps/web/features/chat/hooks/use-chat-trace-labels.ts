@@ -80,6 +80,13 @@ export type ProcessTraceLabels = {
       groundingSupportCount: (count: number) => string;
       exitCode: (code: number) => string;
       site: string;
+      webSearchSummary: (count: number) => string;
+      webReadSummary: (count: number) => string;
+      webSearching: string;
+      expandWebSources: string;
+      collapseWebSources: string;
+      webSourcesPanelTitle: string;
+      openWebSourcesPanel: string;
       publishedAt: string;
       publishedAtWithValue: (date: string) => string;
       emptyContent: string;
@@ -233,6 +240,13 @@ export function useChatTraceLabels(): ProcessTraceLabels {
           groundingSupportCount: (count: number) => t("tool.detail.groundingSupportCount", { count }),
           exitCode: (code: number) => t("tool.detail.exitCode", { code }),
           site: t("tool.detail.site"),
+          webSearchSummary: (count: number) => t("tool.detail.webSearchSummary", { count }),
+          webReadSummary: (count: number) => t("tool.detail.webReadSummary", { count }),
+          webSearching: t("tool.detail.webSearching"),
+          expandWebSources: t("tool.detail.expandWebSources"),
+          collapseWebSources: t("tool.detail.collapseWebSources"),
+          webSourcesPanelTitle: t("tool.detail.webSourcesPanelTitle"),
+          openWebSourcesPanel: t("tool.detail.openWebSourcesPanel"),
           publishedAt: t("tool.detail.publishedAt"),
           publishedAtWithValue: (date: string) => t("tool.detail.publishedAtWithValue", { date }),
           emptyContent: t("tool.detail.emptyContent"),

@@ -211,10 +211,10 @@ function formatToolPublishedAt(value: string | undefined, locale: string): strin
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
 }
 
-function ToolSourceFavicon({ src }: { src?: string }) {
+export function ToolSourceFavicon({ src, className }: { src?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   return (
-    <span className="flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border/30 bg-background">
+    <span className={cn("flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border/30 bg-background", className)}>
       {src && !failed ? (
         <img
           src={src}
@@ -246,21 +246,23 @@ function ToolSourceThumbnail({ src }: { src: string }) {
   );
 }
 
-function ToolSearchSources({
+export function ToolSearchSources({
   sources,
   labels,
   locale,
+  limit = 12,
 }: {
   sources: ToolSearchSource[];
   labels: ProcessTraceLabels;
   locale: string;
+  limit?: number;
 }) {
   const unique = sources
     .flatMap((source) => {
       const url = normalizeToolLink(source.url);
       return url ? [{ ...source, url }] : [];
     })
-    .slice(0, 12);
+    .slice(0, limit);
   if (unique.length === 0) return null;
   return (
     <div className="space-y-2">
@@ -389,6 +391,15 @@ function toolOutputPayloads(call: ToolTraceCall): unknown[] {
 }
 
 function toolSearchSources(call: ToolTraceCall): ToolSearchSource[] {
+  // Prefer the server's display projection: it is the same in the collapsed summary and the loaded
+  // detail, so accumulated counts stay stable. Raw payloads are only a fallback for older traces.
+  const presentation = isToolPayloadRecord(call.output_presentation) ? call.output_presentation : null;
+  if (presentation) {
+    const projected = collectToolSearchSources(presentation);
+    if (projected.length > 0) {
+      return projected;
+    }
+  }
   const sources = new Map<string, ToolSearchSource>();
   for (const payload of toolOutputPayloads(call)) {
     for (const source of collectToolSearchSources(payload)) {
@@ -993,4 +1004,73 @@ export function AgentToolStepRow({
       </AgentTraceStep>
     </li>
   );
+}
+
+export type WebSearchAggregate = {
+  /** Number of distinct web-search tool calls in this turn. */
+  searchCount: number;
+  /** Number of distinct URL-reading tool calls in this turn. */
+  readCount: number;
+  failedCount: number;
+  pending: boolean;
+  /** Unique sources across every web tool call, in first-seen order. */
+  sources: ToolSearchSource[];
+};
+
+function toolTraceCallsFromEvents(events: TraceDisplayEvent[]): ToolTraceCall[] {
+  return events.flatMap((item) => (item.kind === "tool" ? parseToolTraceCalls(item.event.payloadJson) : []));
+}
+
+/**
+ * Collapses one turn's web search / URL reading calls into a single summary. The process trace still
+ * lists each call in order; this aggregate feeds the one-line web summary above the answer.
+ */
+export function buildWebSearchAggregate(
+  toolEvents: TraceDisplayEvent[],
+  toolBlock: ChatTraceBlock | undefined,
+): WebSearchAggregate {
+  const calls = new Map<string, ToolTraceCall>();
+  const candidates = [
+    ...toolTraceCallsFromEvents(toolEvents),
+    ...(toolBlock ? parseToolTraceCalls(toolBlock.payloadJson) : []),
+  ];
+  for (const call of candidates) {
+    const category = toolResultCategory(call);
+    if (category !== "web_search" && category !== "web_read") {
+      continue;
+    }
+    const key = toolTraceCallKey(call) || `web:${category}:${call.name?.trim() ?? ""}`;
+    const previous = calls.get(key);
+    if (!previous || toolTraceStatusRank(call.status) >= toolTraceStatusRank(previous.status)) {
+      calls.set(key, call);
+    }
+  }
+
+  const sources = new Map<string, ToolSearchSource>();
+  let searchCount = 0;
+  let readCount = 0;
+  let failedCount = 0;
+  let pending = false;
+  for (const call of calls.values()) {
+    const category = toolResultCategory(call);
+    if (category === "web_search") {
+      searchCount++;
+    } else {
+      readCount++;
+    }
+    const status = call.status;
+    if (isToolTraceStatusFailed(status)) {
+      failedCount++;
+    }
+    if (isToolTraceStatusActive(status)) {
+      pending = true;
+    }
+    for (const source of toolSearchSources(call)) {
+      if (!sources.has(source.url)) {
+        sources.set(source.url, source);
+      }
+    }
+  }
+
+  return { searchCount, readCount, failedCount, pending, sources: Array.from(sources.values()) };
 }

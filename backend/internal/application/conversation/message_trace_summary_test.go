@@ -14,7 +14,7 @@ import (
 func traceSummaryFixture() *model.MessageProcessTrace {
 	toolPayload := `{"tool_calls":[{"tool_call_id":"call_1","name":"web_search","status":"success","latency_ms":820,` +
 		`"input_preview":"deeix","input_detail":"{\"query\":\"deeix\"}","output_preview":"3 results","output_detail":"` +
-		strings.Repeat("result ", 400) + `","output_presentation":{"kind":"search"}}]}`
+		strings.Repeat("result ", 400) + `","output_presentation":{"kind":"search","sources":[{"url":"https://example.com/a","title":"A"},{"url":"https://example.com/b","title":"B"}]}}]}`
 	think := strings.Repeat("思考", 200)
 	return &model.MessageProcessTrace{
 		Enabled:       true,
@@ -71,6 +71,16 @@ func TestSummarizeMessageProcessTracesKeepsWhatCollapsedRowsNeed(t *testing.T) {
 		}
 		if call["tool_call_id"] != "call_1" || call["name"] != "web_search" || call["latency_ms"] != float64(820) || call["input_preview"] != "deeix" {
 			t.Fatalf("collapsed row fields were lost: %v", call)
+		}
+		// 折叠状态也要显示网页来源数量，摘要必须保留展示投影，否则会出现
+		// “折叠时 4 个网页、展开后 13 个网页”的计数跳变。
+		presentation, ok := call["output_presentation"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected output_presentation to survive the summary: %v", call)
+		}
+		sources, ok := presentation["sources"].([]any)
+		if !ok || len(sources) != 2 {
+			t.Fatalf("expected presentation sources to survive the summary: %v", presentation)
 		}
 	}
 	if summary.Events[1].ContentMarkdown != "调用 web_search" || summary.Events[2].PayloadJSON != "not json" {

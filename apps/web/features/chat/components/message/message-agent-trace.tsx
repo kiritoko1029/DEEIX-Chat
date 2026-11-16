@@ -64,7 +64,7 @@ function isThinkTraceEvent(event: ChatTraceEvent): boolean {
   return event.stage === "think" || event.phase === "upstream_think" || event.eventType === "think";
 }
 
-function buildTraceDisplayEvents(events: ChatTraceEvent[]): TraceDisplayEvent[] {
+export function buildTraceDisplayEvents(events: ChatTraceEvent[]): TraceDisplayEvent[] {
   return events
     .filter((event) => isToolTraceEvent(event) || isThinkTraceEvent(event))
     .sort((left, right) => left.seq - right.seq)

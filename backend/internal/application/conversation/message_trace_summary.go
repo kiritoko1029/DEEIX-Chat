@@ -15,7 +15,9 @@ import (
 const traceSummaryThinkRunes = 80
 
 // traceSummaryToolCallDetailKeys 是工具调用里只在展开后才用到的大字段；预览、状态与耗时保留。
-var traceSummaryToolCallDetailKeys = []string{"input", "input_detail", "output", "output_text", "output_detail", "output_presentation"}
+// output_presentation 是展示投影（来源卡片、摘要），体积有上限且折叠状态也要用它，
+// 因此摘要保留该字段，避免“折叠时是 4 个网页、展开后变成 13 个”的计数跳变。
+var traceSummaryToolCallDetailKeys = []string{"input", "input_detail", "output", "output_text", "output_detail"}
 
 // SummarizeMessageProcessTraces 把已成功完成的助手消息的处理轨迹换成摘要，供消息列表使用。
 // 历史消息的思考与工具过程默认折叠，全文只在展开时通过 GetMessageProcessTrace 获取。

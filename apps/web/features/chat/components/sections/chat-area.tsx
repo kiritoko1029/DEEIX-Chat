@@ -121,6 +121,8 @@ type ChatAreaProps = {
   onOpenCodeArtifact?: (message: ChatAreaMessage, artifact: OpenCodeArtifactInput) => void;
   // Opens an interactive block of the message in the side panel.
   onOpenUIBlock?: (message: ChatAreaMessage, blockKey: string) => void;
+  // Opens the message's web search results in the side panel.
+  onOpenWebSources?: (message: ChatAreaMessage) => void;
   onCycleMessageBranch: (parentPublicID: string | null, direction: "previous" | "next") => void;
   onToggleStar?: () => void | Promise<void>;
   onRename?: (title: string) => void | Promise<void>;
@@ -298,6 +300,7 @@ const ChatMessageRow = React.memo(function ChatMessageRow({
   onReactAssistantMessage,
   onOpenCodeArtifact,
   onOpenUIBlock,
+  onOpenWebSources,
   markdownRender,
   autoExpandThinking,
   autoExpandToolCalls,
@@ -339,6 +342,7 @@ const ChatMessageRow = React.memo(function ChatMessageRow({
   onReactAssistantMessage: (publicID: string, reaction: AssistantReaction) => void;
   onOpenCodeArtifact?: (message: ChatAreaMessage, artifact: OpenCodeArtifactInput) => void;
   onOpenUIBlock?: (message: ChatAreaMessage, blockKey: string) => void;
+  onOpenWebSources?: (message: ChatAreaMessage) => void;
   markdownRender: boolean;
   autoExpandThinking: boolean;
   autoExpandToolCalls: boolean;
@@ -456,6 +460,7 @@ const ChatMessageRow = React.memo(function ChatMessageRow({
           sourceSupportsVideoExtension ? onExtendVideoAttachment : undefined
         }
         artifactActions={artifactActions}
+        onOpenWebSources={onOpenWebSources}
         uiBlockState={uiBlockStateBinding}
         markdownRender={markdownRender}
         autoExpandThinking={autoExpandThinking}
@@ -520,6 +525,7 @@ const ChatMessageRow = React.memo(function ChatMessageRow({
   previous.onExtendVideoAttachment === next.onExtendVideoAttachment &&
   previous.onOpenCodeArtifact === next.onOpenCodeArtifact &&
   previous.onOpenUIBlock === next.onOpenUIBlock &&
+  previous.onOpenWebSources === next.onOpenWebSources &&
   areChatAreaMessagesRenderEqual(previous.item, next.item)
 ));
 
@@ -550,6 +556,7 @@ export function ChatArea({
   onExtendVideoAttachment,
   onOpenCodeArtifact,
   onOpenUIBlock,
+  onOpenWebSources,
   onCycleMessageBranch,
   onToggleStar,
   onRename,
@@ -754,6 +761,7 @@ export function ChatArea({
                       onReactAssistantMessage={stableOnReactAssistantMessage}
                       onOpenCodeArtifact={onOpenCodeArtifact}
                       onOpenUIBlock={onOpenUIBlock}
+                      onOpenWebSources={onOpenWebSources}
                       markdownRender={markdownRender}
                       autoExpandThinking={autoExpandThinking}
                       autoExpandToolCalls={autoExpandToolCalls}
