@@ -28,6 +28,7 @@
 
 This branch adds trusted sub2api sign-in links, display-profile synchronization, and independent multi-Key model providers. Web/Docker releases use date versions such as `2026.11.12`; the Docker Hub target is `195658/deeix-chat`. Use this fork's image rather than an unchanged upstream image when enabling these features.
 
+- [v2026.11.16-fix.2: one place for a turn's web search results](<docs/releases/2026.11.16-fix.2.md>) — search and read results collapse into a single count above the answer that opens in the side panel, and the count no longer changes when the trace expands; use `195658/deeix-chat:2026.11.16-fix.2`; this revision does not replace `latest`.
 - [v2026.11.16-fix.1: web switch now matches the request](<docs/releases/2026.11.16-fix.1.md>) — use `195658/deeix-chat:2026.11.16-fix.1`; this revision does not replace `latest`.
 - [v2026.11.16: DeepSeek web tools and a composer web switch](<docs/releases/2026.11.16.md>) — web search and link reading are on by default for DeepSeek models, fall back to a plain request when the upstream rejects them, and users can toggle them in the composer; use `195658/deeix-chat:2026.11.16`.
 - [v2026.11.13-fix.1: readable sub2api users and Shanghai defaults](<docs/releases/2026.11.13-fix.1.md>) — use `195658/deeix-chat:2026.11.13-fix.1`; this revision does not replace `latest`.
