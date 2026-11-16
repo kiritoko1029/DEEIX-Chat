@@ -1,6 +1,6 @@
 {
   "name": "@deeix/web",
-  "version": "2026.11.13-fix.1",
+  "version": "2026.11.16",
   "private": true,
   "sideEffects": [
     "*.css",
